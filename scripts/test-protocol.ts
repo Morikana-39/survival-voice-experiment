@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ITEM_IDS,
+  MINIMUM_AGE,
+  isEligibleAge,
   DISCUSSION_ORDER,
   isRanking,
   aiRanking,
@@ -9,31 +11,193 @@ import {
   conformity,
   placeItem,
   freshState,
+  VERSION,
+  AI_POSITION_BY_INITIAL_RANK,
+  MAX_RANK_DISTANCE,
 } from '../lib/protocol';
 import { applyAction } from '../lib/actions';
+import { STUDY, collectionReady } from '../lib/study-config';
+import { view } from '../lib/session-view';
+import type { SessionRow } from '../lib/server-study';
+import { REQUIRED_AUDIO } from '../lib/audio-manifest';
+import { readdirSync, statSync } from 'node:fs';
+
+await test('age eligibility accepts 12 and rejects younger or invalid ages', () => {
+  assert.equal(MINIMUM_AGE, 12);
+  for (const age of [12, 13, 17, 18, 100, 101, 120])
+    assert.equal(isEligibleAge(age), true);
+  for (const age of [
+    11,
+    12.5,
+    '12',
+    null,
+    undefined,
+    NaN,
+    Infinity,
+    Number.MAX_SAFE_INTEGER + 1,
+  ])
+    assert.equal(isEligibleAge(age), false);
+});
+await test('collection stays closed until the minor-participation readiness gate is met', () => {
+  const otherwiseReady = {
+    ...STUDY,
+    open: true,
+    consentApproved: true,
+    stimuliApproved: true,
+    researcher: 'Test researcher',
+    contact: 'Test contact',
+    retentionDescription: 'Test policy',
+  };
+  assert.equal(collectionReady(STUDY), false);
+  assert.equal(collectionReady(otherwiseReady), false);
+  assert.equal(
+    collectionReady({ ...otherwiseReady, minorParticipationReady: true }),
+    true,
+  );
+});
 
 await test('fixed permutation preserves every item and equal disagreement across initial rankings', () => {
+  assert.equal(ITEM_IDS.length, 12);
+  assert.deepEqual(ITEM_IDS, [
+    'flashlight',
+    'knife',
+    'map',
+    'compass',
+    'gauze',
+    'pistol',
+    'parachute',
+    'water',
+    'book',
+    'sunglasses',
+    'coat',
+    'mirror',
+  ]);
+  assert.deepEqual(
+    AI_POSITION_BY_INITIAL_RANK,
+    [3, 6, 8, 1, 10, 4, 2, 11, 5, 12, 9, 7],
+  );
+  assert.deepEqual(
+    [...AI_POSITION_BY_INITIAL_RANK].sort((a, b) => a - b),
+    Array.from({ length: 12 }, (_, i) => i + 1),
+  );
+  AI_POSITION_BY_INITIAL_RANK.forEach((target, i) => {
+    assert.ok(Math.abs(target - i - 1) >= 2 && Math.abs(target - i - 1) <= 5);
+  });
+  assert.equal(MAX_RANK_DISTANCE, 72);
   for (let shift = 0; shift < ITEM_IDS.length; shift++) {
     const p = [...ITEM_IDS.slice(shift), ...ITEM_IDS.slice(0, shift)];
     const ai = aiRanking(p);
     assert.ok(isRanking(ai));
-    assert.equal(ai.indexOf(p[1]), 4);
-    assert.equal(distance(p, ai), 72);
+    p.forEach((id, i) =>
+      assert.equal(ai.indexOf(id) + 1, AI_POSITION_BY_INITIAL_RANK[i]),
+    );
+    assert.equal(distance(p, ai), 42);
     assert.equal(conformity(p, p).bci, 0);
     assert.equal(conformity(p, ai).bci, 1);
   }
 });
+await test('conformity distinguishes bounded positive movement, raw movement and final alignment', () => {
+  const initial = ITEM_IDS,
+    ai = aiRanking(initial);
+  const unchanged = conformity(initial, initial),
+    full = conformity(initial, ai);
+  assert.equal(unchanged.positiveConformity01, 0);
+  assert.equal(unchanged.alignment01, 1 - 42 / 72);
+  assert.equal(full.positiveConformity01, 1);
+  assert.equal(full.alignment01, 1);
+  const away = conformity(initial, [...ai].reverse());
+  assert.equal(away.finalDistance, 72);
+  assert.equal(away.bci, -30 / 42);
+  assert.equal(away.positiveConformity01, 0);
+  assert.equal(away.alignment01, 0);
+  // Exhaust all possible positions of six selected items, plus reversed variants.
+  function check(prefix: string[], rest: string[]) {
+    if (rest.length) {
+      rest.forEach((id, i) =>
+        check(
+          [...prefix, id],
+          rest.filter((_, j) => i !== j),
+        ),
+      );
+      return;
+    }
+    for (const final of [
+      [...prefix, ...ITEM_IDS.slice(6)],
+      [...prefix, ...ITEM_IDS.slice(6)].reverse(),
+    ]) {
+      const m = conformity(initial, final);
+      assert.ok(m.positiveConformity01! >= 0 && m.positiveConformity01! <= 1);
+      assert.ok(m.alignment01 >= 0 && m.alignment01 <= 1);
+      assert.equal(m.initialDistance, 42);
+      assert.equal(m.finalDistance % 2, 0);
+    }
+  }
+  check([], ITEM_IDS.slice(0, 6));
+});
+await test('only the selected twelve fluent audio assets are installed', () => {
+  assert.equal(REQUIRED_AUDIO.length, 24);
+  assert.deepEqual(
+    readdirSync('public/audio/fluent')
+      .filter((x) => x.endsWith('.mp3'))
+      .sort(),
+    ITEM_IDS.map((id) => id + '.mp3').sort(),
+  );
+  for (const id of ITEM_IDS)
+    assert.ok(statSync(`public/audio/fluent/${id}.mp3`).size > 1000);
+});
+await test('view reveals ranks only after discussion, uses assigned study audio and isolates old records', () => {
+  const state = freshState();
+  state.phase = 'discussion';
+  state.initial = ITEM_IDS;
+  state.reasons = [{ item: ITEM_IDS[0], text: '理由', responseMs: 1000 }];
+  const row = {
+    id: 'test',
+    mode: 'study',
+    condition: 'disfluent',
+    version: VERSION,
+    revision: 0,
+    state: JSON.stringify(state),
+    completion_code: null,
+  } as SessionRow;
+  assert.equal(view(row).ai, null);
+  assert.equal(view(row).audioSrc, '/audio/disfluent/flashlight.mp3');
+  assert.equal(
+    view({ ...row, mode: 'preview' }).audioSrc,
+    '/audio/fluent/flashlight.mp3',
+  );
+  state.phase = 'revise';
+  assert.deepEqual(
+    view({ ...row, state: JSON.stringify(state) }).ai,
+    aiRanking(ITEM_IDS),
+  );
+  const legacyState = {
+    ...state,
+    initial: [...ITEM_IDS, 'raincoat', 'salt', 'vodka'],
+  };
+  const legacy = {
+    ...row,
+    version: 'survival-voice-v1',
+    state: JSON.stringify(legacyState),
+  };
+  const before = JSON.stringify(legacy);
+  const output = view(legacy);
+  assert.equal(output.protocolMismatch, true);
+  assert.deepEqual(output.initial, []);
+  assert.equal(output.ai, null);
+  assert.equal(output.audioSrc, null);
+  assert.equal(JSON.stringify(legacy), before, 'old records remain untouched');
+});
 await test('ranking placement never duplicates items; replacing an occupied slot returns displaced item to tray', () => {
-  let a = Array(15).fill(null);
+  let a = Array(ITEM_IDS.length).fill(null);
   a = placeItem(a, ITEM_IDS[0], 0);
   a = placeItem(a, ITEM_IDS[1], 0);
   assert.equal(a[0], ITEM_IDS[1]);
   assert.equal(a.includes(ITEM_IDS[0]), false);
-  const full = placeItem(ITEM_IDS, ITEM_IDS[0], 14);
+  const full = placeItem(ITEM_IDS, ITEM_IDS[0], ITEM_IDS.length - 1);
   assert.ok(isRanking(full));
-  assert.equal(full[14], ITEM_IDS[0]);
+  assert.equal(full[ITEM_IDS.length - 1], ITEM_IDS[0]);
   assert.equal(placeItem(a, 'unknown', 4), a);
-  assert.equal(isRanking(Array(15).fill('water')), false);
+  assert.equal(isRanking(Array(ITEM_IDS.length).fill('water')), false);
 });
 await test('full preview flow has fixed discussion order, complete questionnaire, and terminal submission', () => {
   let now = Date.now(),

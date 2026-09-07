@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "draft_version": "2026-09-06-draft-1",
+  "status": "researcher_review_only",
+  "language": "zh-CN",
+  "note": "Authoring material only. Not imported by the website, not published, and no audio has been generated.",
+  "manipulation_proposal": "Exactly two added filled pauses per clip: one 嗯 and one 呃. This is a starting dose for a pilot, not a validated optimum. Removing the recorded insertion strings exactly recovers each fluent text.",
+  "items": [
+    {
+      "order": 1,
+      "id": "flashlight",
+      "label_en": "Flashlight",
+      "label_zh": "手电筒",
+      "intent_en": "Lighting and visibility; usefulness depends on light conditions.",
+      "segments": [
+        "手电筒",
+        "可以在光线不足的时候照明，也能用来发出光线，让别人注意到我们。不过，",
+        "当前还是白天，所以我会把这些用途和眼前的环境一起考虑。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "手电筒可以在光线不足的时候照明，也能用来发出光线，让别人注意到我们。不过，当前还是白天，所以我会把这些用途和眼前的环境一起考虑。",
+      "disfluent": "手电筒，嗯，可以在光线不足的时候照明，也能用来发出光线，让别人注意到我们。不过，呃，当前还是白天，所以我会把这些用途和眼前的环境一起考虑。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/flashlight.mp3",
+        "disfluent": "public/audio/disfluent/flashlight.mp3"
+      }
+    },
+    {
+      "order": 2,
+      "id": "knife",
+      "label_en": "Folding knife",
+      "label_zh": "折叠小刀",
+      "intent_en": "A tool for working with other materials, rather than a direct supply of water or shelter.",
+      "segments": [
+        "折叠小刀",
+        "可以切割布料或绳索，帮助我们处理其他物品，完成一些简单的工作。不过，",
+        "它本身不能提供饮水或遮蔽，所以我会考虑它能和哪些物品配合使用。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "折叠小刀可以切割布料或绳索，帮助我们处理其他物品，完成一些简单的工作。不过，它本身不能提供饮水或遮蔽，所以我会考虑它能和哪些物品配合使用。",
+      "disfluent": "折叠小刀，嗯，可以切割布料或绳索，帮助我们处理其他物品，完成一些简单的工作。不过，呃，它本身不能提供饮水或遮蔽，所以我会考虑它能和哪些物品配合使用。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/knife.mp3",
+        "disfluent": "public/audio/disfluent/knife.mp3"
+      }
+    },
+    {
+      "order": 3,
+      "id": "map",
+      "label_en": "Sectional aviation map",
+      "label_zh": "当地航空地图",
+      "intent_en": "Geographic information is useful only if it can be interpreted and applied safely.",
+      "segments": [
+        "当地航空地图",
+        "可以提供地形信息，帮助我们理解周围的环境。不过，",
+        "看懂地图并不等于已经找到安全的路线，所以我会考虑我们是否具备使用这些信息的条件。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "当地航空地图可以提供地形信息，帮助我们理解周围的环境。不过，看懂地图并不等于已经找到安全的路线，所以我会考虑我们是否具备使用这些信息的条件。",
+      "disfluent": "当地航空地图，嗯，可以提供地形信息，帮助我们理解周围的环境。不过，呃，看懂地图并不等于已经找到安全的路线，所以我会考虑我们是否具备使用这些信息的条件。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/map.mp3",
+        "disfluent": "public/audio/disfluent/map.mp3"
+      }
+    },
+    {
+      "order": 4,
+      "id": "raincoat",
+      "label_en": "Large plastic raincoat",
+      "label_zh": "塑料雨衣",
+      "intent_en": "Rain protection and covering material; use depends on conditions and setup.",
+      "segments": [
+        "大号塑料雨衣",
+        "既可以用于防雨，也可以作为一块覆盖材料使用。不过，",
+        "防雨的作用取决于后续天气，其他用途则要看能否把它展开并固定，所以我会结合现场条件来考虑。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "大号塑料雨衣既可以用于防雨，也可以作为一块覆盖材料使用。不过，防雨的作用取决于后续天气，其他用途则要看能否把它展开并固定，所以我会结合现场条件来考虑。",
+      "disfluent": "大号塑料雨衣，嗯，既可以用于防雨，也可以作为一块覆盖材料使用。不过，呃，防雨的作用取决于后续天气，其他用途则要看能否把它展开并固定，所以我会结合现场条件来考虑。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/raincoat.mp3",
+        "disfluent": "public/audio/disfluent/raincoat.mp3"
+      }
+    },
+    {
+      "order": 5,
+      "id": "compass",
+      "label_en": "Magnetic compass",
+      "label_zh": "磁性指南针",
+      "intent_en": "Knowing a direction does not establish a safe destination or route.",
+      "segments": [
+        "磁性指南针",
+        "可以帮助我们辨认方向，减少对方位的混淆。不过，",
+        "知道方向不等于知道哪里有救援，所以我会考虑我们是否有明确的目的地和可靠的路线。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "磁性指南针可以帮助我们辨认方向，减少对方位的混淆。不过，知道方向不等于知道哪里有救援，所以我会考虑我们是否有明确的目的地和可靠的路线。",
+      "disfluent": "磁性指南针，嗯，可以帮助我们辨认方向，减少对方位的混淆。不过，呃，知道方向不等于知道哪里有救援，所以我会考虑我们是否有明确的目的地和可靠的路线。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/compass.mp3",
+        "disfluent": "public/audio/disfluent/compass.mp3"
+      }
+    },
+    {
+      "order": 6,
+      "id": "gauze",
+      "label_en": "Compression kit with gauze",
+      "label_zh": "急救包",
+      "intent_en": "Basic wound-care materials; usefulness depends on actual injuries and needs.",
+      "segments": [
+        "急救包里的纱布和敷料",
+        "可以在出现伤口时用于包扎，也能为处理意外提供一些材料。不过，",
+        "它能发挥多大作用，还取决于是否有人受伤，以及具体需要什么帮助。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "急救包里的纱布和敷料可以在出现伤口时用于包扎，也能为处理意外提供一些材料。不过，它能发挥多大作用，还取决于是否有人受伤，以及具体需要什么帮助。",
+      "disfluent": "急救包里的纱布和敷料，嗯，可以在出现伤口时用于包扎，也能为处理意外提供一些材料。不过，呃，它能发挥多大作用，还取决于是否有人受伤，以及具体需要什么帮助。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/gauze.mp3",
+        "disfluent": "public/audio/disfluent/gauze.mp3"
+      }
+    },
+    {
+      "order": 7,
+      "id": "pistol",
+      "label_en": "Loaded pistol",
+      "label_zh": "手枪",
+      "intent_en": "Possible notice through sound, weighed against uncertain reach and safety risks; no handling instruction.",
+      "segments": [
+        "这把已装弹的手枪",
+        "可能通过声音引起附近人的注意，但声音不一定能传到有人活动的地方。同时，",
+        "它还涉及使用安全，所以我会把求救的可能性和额外的风险一起考虑。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "这把已装弹的手枪可能通过声音引起附近人的注意，但声音不一定能传到有人活动的地方。同时，它还涉及使用安全，所以我会把求救的可能性和额外的风险一起考虑。",
+      "disfluent": "这把已装弹的手枪，嗯，可能通过声音引起附近人的注意，但声音不一定能传到有人活动的地方。同时，呃，它还涉及使用安全，所以我会把求救的可能性和额外的风险一起考虑。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/pistol.mp3",
+        "disfluent": "public/audio/disfluent/pistol.mp3"
+      }
+    },
+    {
+      "order": 8,
+      "id": "parachute",
+      "label_en": "Red-and-white parachute",
+      "label_zh": "降落伞",
+      "intent_en": "Visible fabric and covering potential; practical use depends on deployment.",
+      "segments": [
+        "红白相间的降落伞",
+        "颜色比较醒目，也有较大面积的布料，可以考虑遮挡和引起注意这两类用途。不过，",
+        "具体能怎么利用，还要看现场能否把它展开或固定。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "红白相间的降落伞颜色比较醒目，也有较大面积的布料，可以考虑遮挡和引起注意这两类用途。不过，具体能怎么利用，还要看现场能否把它展开或固定。",
+      "disfluent": "红白相间的降落伞，嗯，颜色比较醒目，也有较大面积的布料，可以考虑遮挡和引起注意这两类用途。不过，呃，具体能怎么利用，还要看现场能否把它展开或固定。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/parachute.mp3",
+        "disfluent": "public/audio/disfluent/parachute.mp3"
+      }
+    },
+    {
+      "order": 9,
+      "id": "salt",
+      "label_en": "Bottle of salt tablets",
+      "label_zh": "盐片",
+      "intent_en": "Do not infer usefulness from quantity or treat tablets as water; use requires appropriate conditions.",
+      "segments": [
+        "这瓶盐片",
+        "与补充盐分有关，但不能代替饮用水，也不适合仅凭天气炎热就随意服用。所以，",
+        "我会先考虑它是否适合当前情况，而不是因为有一千片，就直接判断它更有价值。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "这瓶盐片与补充盐分有关，但不能代替饮用水，也不适合仅凭天气炎热就随意服用。所以，我会先考虑它是否适合当前情况，而不是因为有一千片，就直接判断它更有价值。",
+      "disfluent": "这瓶盐片，嗯，与补充盐分有关，但不能代替饮用水，也不适合仅凭天气炎热就随意服用。所以，呃，我会先考虑它是否适合当前情况，而不是因为有一千片，就直接判断它更有价值。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/salt.mp3",
+        "disfluent": "public/audio/disfluent/salt.mp3"
+      }
+    },
+    {
+      "order": 10,
+      "id": "water",
+      "label_en": "Approximately 0.95 litres of water",
+      "label_zh": "饮用水",
+      "intent_en": "A direct but limited drinking-water supply for a group; no rationing instruction.",
+      "segments": [
+        "这份饮用水",
+        "能够提供直接的饮水补给，但总量只有大约零点九五升，需要放在整个团队的需求中考虑。所以，",
+        "我会同时看它能解决什么问题，以及这一有限的数量能支持到什么程度。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "这份饮用水能够提供直接的饮水补给，但总量只有大约零点九五升，需要放在整个团队的需求中考虑。所以，我会同时看它能解决什么问题，以及这一有限的数量能支持到什么程度。",
+      "disfluent": "这份饮用水，嗯，能够提供直接的饮水补给，但总量只有大约零点九五升，需要放在整个团队的需求中考虑。所以，呃，我会同时看它能解决什么问题，以及这一有限的数量能支持到什么程度。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/water.mp3",
+        "disfluent": "public/audio/disfluent/water.mp3"
+      }
+    },
+    {
+      "order": 11,
+      "id": "book",
+      "label_en": "Edible Animals of the Desert",
+      "label_zh": "《沙漠中的可食用动物》",
+      "intent_en": "Information about food is not the same as obtaining usable food.",
+      "segments": [
+        "《沙漠中的可食用动物》这本书",
+        "可能提供辨认相关动物的信息，但拥有这些信息，不等于就能找到或获得食物。所以，",
+        "我会考虑我们是否有时间和条件，把书里的内容实际用起来。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "《沙漠中的可食用动物》这本书可能提供辨认相关动物的信息，但拥有这些信息，不等于就能找到或获得食物。所以，我会考虑我们是否有时间和条件，把书里的内容实际用起来。",
+      "disfluent": "《沙漠中的可食用动物》这本书，嗯，可能提供辨认相关动物的信息，但拥有这些信息，不等于就能找到或获得食物。所以，呃，我会考虑我们是否有时间和条件，把书里的内容实际用起来。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/book.mp3",
+        "disfluent": "public/audio/disfluent/book.mp3"
+      }
+    },
+    {
+      "order": 12,
+      "id": "sunglasses",
+      "label_en": "Sunglasses",
+      "label_zh": "太阳镜",
+      "intent_en": "Protection from glare; a specific benefit rather than a replacement for other supplies.",
+      "segments": [
+        "太阳镜",
+        "可以减轻强光带来的不适，帮助我们在明亮的环境中观察周围。不过，",
+        "它主要作用在眼部，不能代替其他补给，所以我会把这种保护和团队的其他需要一起考虑。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "太阳镜可以减轻强光带来的不适，帮助我们在明亮的环境中观察周围。不过，它主要作用在眼部，不能代替其他补给，所以我会把这种保护和团队的其他需要一起考虑。",
+      "disfluent": "太阳镜，嗯，可以减轻强光带来的不适，帮助我们在明亮的环境中观察周围。不过，呃，它主要作用在眼部，不能代替其他补给，所以我会把这种保护和团队的其他需要一起考虑。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/sunglasses.mp3",
+        "disfluent": "public/audio/disfluent/sunglasses.mp3"
+      }
+    },
+    {
+      "order": 13,
+      "id": "vodka",
+      "label_en": "Approximately 1.9 litres of 90% ABV vodka",
+      "label_zh": "伏特加",
+      "intent_en": "Distinguish alcohol from drinking water, and the liquid from its container; avoid unsafe uses.",
+      "segments": [
+        "这份伏特加",
+        "虽然也是液体，但不能当成普通的饮水补给，而且标注的酒精浓度达到百分之九十。所以，",
+        "我会区分酒液和容器各自可能的用途，同时考虑携带和使用中的风险。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "这份伏特加虽然也是液体，但不能当成普通的饮水补给，而且标注的酒精浓度达到百分之九十。所以，我会区分酒液和容器各自可能的用途，同时考虑携带和使用中的风险。",
+      "disfluent": "这份伏特加，嗯，虽然也是液体，但不能当成普通的饮水补给，而且标注的酒精浓度达到百分之九十。所以，呃，我会区分酒液和容器各自可能的用途，同时考虑携带和使用中的风险。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/vodka.mp3",
+        "disfluent": "public/audio/disfluent/vodka.mp3"
+      }
+    },
+    {
+      "order": 14,
+      "id": "coat",
+      "label_en": "Topcoat",
+      "label_zh": "厚外套",
+      "intent_en": "Covering and warmth under some conditions, with a carrying burden in present heat.",
+      "segments": [
+        "厚外套",
+        "可以用来覆盖身体，在需要保暖的时候也可能派上用场。不过，",
+        "现在是炎热的白天，所以我会同时考虑它可能提供的保护，以及携带它带来的负担。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "厚外套可以用来覆盖身体，在需要保暖的时候也可能派上用场。不过，现在是炎热的白天，所以我会同时考虑它可能提供的保护，以及携带它带来的负担。",
+      "disfluent": "厚外套，嗯，可以用来覆盖身体，在需要保暖的时候也可能派上用场。不过，呃，现在是炎热的白天，所以我会同时考虑它可能提供的保护，以及携带它带来的负担。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/coat.mp3",
+        "disfluent": "public/audio/disfluent/coat.mp3"
+      }
+    },
+    {
+      "order": 15,
+      "id": "mirror",
+      "label_en": "Cosmetic mirror",
+      "label_zh": "化妆镜",
+      "intent_en": "Reflected sunlight can attract attention, but detection depends on someone seeing it.",
+      "segments": [
+        "化妆镜",
+        "可以借助阳光反射光线，让别人有机会注意到我们的位置。不过，",
+        "能否被看见，还要看周围有没有能够接收到信号的人，所以我会把这种用途和现场条件一起考虑。"
+      ],
+      "insertions": ["，嗯，", "呃，"],
+      "fluent": "化妆镜可以借助阳光反射光线，让别人有机会注意到我们的位置。不过，能否被看见，还要看周围有没有能够接收到信号的人，所以我会把这种用途和现场条件一起考虑。",
+      "disfluent": "化妆镜，嗯，可以借助阳光反射光线，让别人有机会注意到我们的位置。不过，呃，能否被看见，还要看周围有没有能够接收到信号的人，所以我会把这种用途和现场条件一起考虑。",
+      "audio_files": {
+        "fluent": "public/audio/fluent/mirror.mp3",
+        "disfluent": "public/audio/disfluent/mirror.mp3"
+      }
+    }
+  ]
+}

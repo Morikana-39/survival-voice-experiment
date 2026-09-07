@@ -3,16 +3,13 @@ const ids = [
   'flashlight',
   'knife',
   'map',
-  'raincoat',
   'compass',
   'gauze',
   'pistol',
   'parachute',
-  'salt',
   'water',
   'book',
   'sunglasses',
-  'vodka',
   'coat',
   'mirror',
 ];
@@ -26,5 +23,5 @@ if (missing.length) {
   process.exitCode = 1;
 } else
   console.log(
-    'All 30 recordings exist. Listen to every clip and verify the matched manipulation before approving stimuli.',
+    'All 24 recordings exist. Listen to every clip and verify the matched manipulation before approving stimuli.',
   );

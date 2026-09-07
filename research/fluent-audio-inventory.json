@@ -1,0 +1,99 @@
+{
+  "date": "2026-09-07",
+  "source_archive": "fluent.zip",
+  "protocol_version": "survival-voice-v1.2-12items",
+  "condition": "fluent",
+  "unchanged_bytes_verified": true,
+  "codec": "mp3",
+  "sample_rate_hz": 48000,
+  "channels": 1,
+  "total_duration_seconds": 158.4,
+  "content_listening_review": "pending",
+  "matched_disfluent_review": "pending",
+  "clips": [
+    {
+      "id": "book",
+      "path": "public/audio/fluent/book.mp3",
+      "bytes": 266880,
+      "duration_seconds": 16.68,
+      "sha256": "561c867345e2537a3e71e8f5bb4ac392e86b2a47e4b6f8ccd451dd086c5fd38f"
+    },
+    {
+      "id": "coat",
+      "path": "public/audio/fluent/coat.mp3",
+      "bytes": 188544,
+      "duration_seconds": 11.784,
+      "sha256": "7e7a6423223f3d7e08c68926e8c1c76665372519bee5da9acb561f75eb271b64"
+    },
+    {
+      "id": "compass",
+      "path": "public/audio/fluent/compass.mp3",
+      "bytes": 209664,
+      "duration_seconds": 13.104,
+      "sha256": "c7a50bf437267f927842b1bc75d9517d6a3172e0f45041bb5198c5598096d8b8"
+    },
+    {
+      "id": "flashlight",
+      "path": "public/audio/fluent/flashlight.mp3",
+      "bytes": 190080,
+      "duration_seconds": 11.88,
+      "sha256": "7fd1e9875cbe06348a561ab8ecbc297ea682fc5afeceede290ff1c21c8c11c3f"
+    },
+    {
+      "id": "gauze",
+      "path": "public/audio/fluent/gauze.mp3",
+      "bytes": 208128,
+      "duration_seconds": 13.008,
+      "sha256": "7cabb9deca7d2da22c8f9becdd86099f4534ad03461b23a7807f5753b7c10dfe"
+    },
+    {
+      "id": "knife",
+      "path": "public/audio/fluent/knife.mp3",
+      "bytes": 176256,
+      "duration_seconds": 11.016,
+      "sha256": "8c81795bf7d7c77d9ca5fc39681464109730fdc13980b9367bdc1659aa46fd45"
+    },
+    {
+      "id": "map",
+      "path": "public/audio/fluent/map.mp3",
+      "bytes": 209664,
+      "duration_seconds": 13.104,
+      "sha256": "c016513c2bf0d57eeb5c3374e54d575db5671ea9ad715df60355a1ca5fde6480"
+    },
+    {
+      "id": "mirror",
+      "path": "public/audio/fluent/mirror.mp3",
+      "bytes": 237696,
+      "duration_seconds": 14.856,
+      "sha256": "889f16c35cecc668168e43d6ab5986eff7e02aa2937d0fc8168adc75d6904fbb"
+    },
+    {
+      "id": "parachute",
+      "path": "public/audio/fluent/parachute.mp3",
+      "bytes": 211968,
+      "duration_seconds": 13.248,
+      "sha256": "6d9498e20aa61ca2b982e57e875fd93fcd727bf951341dfa8fabb2182fad3cee"
+    },
+    {
+      "id": "pistol",
+      "path": "public/audio/fluent/pistol.mp3",
+      "bytes": 242304,
+      "duration_seconds": 15.144,
+      "sha256": "0835f4d7936f8872c1356ccc8097276d378135ac310bd85ca3327c23e0bb46ff"
+    },
+    {
+      "id": "sunglasses",
+      "path": "public/audio/fluent/sunglasses.mp3",
+      "bytes": 180480,
+      "duration_seconds": 11.28,
+      "sha256": "3ede313031065a1fb6ec361578ae27e69fd58d5d0ea47373a7e1a2e9bdb1d500"
+    },
+    {
+      "id": "water",
+      "path": "public/audio/fluent/water.mp3",
+      "bytes": 212736,
+      "duration_seconds": 13.296,
+      "sha256": "7417d1e0e8209ba09a154c038016ccdaa0005e083b614caaed74ce55d7e30e95"
+    }
+  ]
+}

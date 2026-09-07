@@ -9,13 +9,18 @@ import {
   type SessionRow,
 } from '@/lib/server-study';
 import { applyAction, ActionError } from '@/lib/actions';
-import { conformity, type State } from '@/lib/protocol';
+import { VERSION, conformity, type State } from '@/lib/protocol';
 
 export async function POST(request: Request) {
   try {
     const b = await bodyOf(request),
       row = await findSession(request);
     if (!row) throw new StudyError('会话已失效，请刷新页面。', 401);
+    if (row.version !== VERSION && b.action !== 'withdraw')
+      throw new StudyError(
+        '实验内容已更新。请刷新页面；旧版预览需要重新开始。',
+        409,
+      );
     if (typeof b.actionId !== 'string' || !/^[a-f0-9-]{36}$/.test(b.actionId))
       throw new StudyError('提交标识无效。');
     if (row.last_action_id === b.actionId) {

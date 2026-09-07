@@ -1,9 +1,19 @@
-export const VERSION = 'survival-voice-v1.0';
+export const VERSION = 'survival-voice-v1.2-12items';
+export const PERMUTATION_ID = 'rank12-irregular-2026-09-07';
+export const SCORING_VERSION = 'footrule-gap-closure-v1';
+export const MINIMUM_AGE = 12;
+export function isEligibleAge(value: unknown): value is number {
+  // Safe-integer validation is a numeric representation check, not a study age ceiling.
+  return (
+    typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= MINIMUM_AGE
+  );
+}
 export const ITEMS = [
   { id: 'flashlight', label: '手电筒', detail: '使用 4 节电池' },
   { id: 'knife', label: '折叠小刀', detail: '一把' },
   { id: 'map', label: '当地航空地图', detail: '标有区域地形' },
-  { id: 'raincoat', label: '塑料雨衣', detail: '大号' },
   { id: 'compass', label: '磁性指南针', detail: '一个' },
   { id: 'gauze', label: '急救包', detail: '含纱布和加压敷料' },
   {
@@ -12,15 +22,9 @@ export const ITEMS = [
     detail: '口径约 11.4 毫米（.45 英寸），已装弹',
   },
   { id: 'parachute', label: '降落伞', detail: '红白相间' },
-  { id: 'salt', label: '盐片', detail: '一瓶，1,000 片' },
   { id: 'water', label: '饮用水', detail: '约 0.95 升（1 美制夸脱）' },
   { id: 'book', label: '《沙漠中的可食用动物》', detail: '一本书' },
   { id: 'sunglasses', label: '太阳镜', detail: '一副' },
-  {
-    id: 'vodka',
-    label: '伏特加',
-    detail: '约 1.9 升，酒精度 90%（180 proof）',
-  },
   { id: 'coat', label: '厚外套', detail: '一件' },
   { id: 'mirror', label: '化妆镜', detail: '一面' },
 ] as const;
@@ -136,12 +140,19 @@ export function isRanking(value: unknown): value is string[] {
     value.every((x) => typeof x === 'string' && ITEM_IDS.includes(x))
   );
 }
-// An item initially at rank r receives AI rank ((r - 1 + 3) mod n) + 1.
-// Same disagreement for every participant; a pilot choice, not a reported full mapping from Nass.
+// Index = initial rank minus one; value = one-based AI destination rank.
+// Frozen across participants and conditions, not a recovered mapping from Nass.
+export const AI_POSITION_BY_INITIAL_RANK = Object.freeze([
+  3, 6, 8, 1, 10, 4, 2, 11, 5, 12, 9, 7,
+] as const);
+export const MAX_RANK_DISTANCE = Math.floor(ITEM_IDS.length ** 2 / 2);
 export function aiRanking(initial: string[]): string[] {
   if (!isRanking(initial)) throw new Error('Invalid initial ranking');
-  const n = initial.length;
-  return initial.map((_, index) => initial[(index - 3 + n) % n]);
+  const result = Array<string>(initial.length);
+  initial.forEach((item, index) => {
+    result[AI_POSITION_BY_INITIAL_RANK[index] - 1] = item;
+  });
+  return result;
 }
 export function distance(a: string[], b: string[]): number {
   if (!isRanking(a) || !isRanking(b)) throw new Error('Invalid ranking');
@@ -151,13 +162,22 @@ export function distance(a: string[], b: string[]): number {
 export function conformity(initial: string[], final: string[]) {
   const ai = aiRanking(initial),
     pre = distance(initial, ai),
-    post = distance(final, ai);
+    post = distance(final, ai),
+    bci = pre === 0 ? null : (pre - post) / pre;
   return {
     ai,
+    itemCount: initial.length,
+    permutationId: PERMUTATION_ID,
+    scoringVersion: SCORING_VERSION,
+    maximumDistance: MAX_RANK_DISTANCE,
     initialDistance: pre,
     finalDistance: post,
-    bci: pre === 0 ? null : (pre - post) / pre,
-    normalizedFinalDistance: post / Math.floor(initial.length ** 2 / 2),
+    bci,
+    // Bounded positive gap closure loses information about movement away.
+    // Retain the unclipped BCI and raw rankings for the primary analysis decision.
+    positiveConformity01: bci === null ? null : Math.max(0, bci),
+    alignment01: 1 - post / MAX_RANK_DISTANCE,
+    normalizedFinalDistance: post / MAX_RANK_DISTANCE,
     changedItems: final.filter((x, i) => initial[i] !== x).length,
   };
 }
@@ -184,6 +204,7 @@ export function placeItem(
 export type View = {
   id: string;
   mode: Mode;
+  protocolMismatch: boolean;
   revision: number;
   phase: Phase;
   initial: string[];

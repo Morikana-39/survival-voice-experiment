@@ -26,16 +26,45 @@ for (const row of usable) {
   const state =
       typeof row.state === 'string' ? JSON.parse(row.state) : row.state,
     m = typeof row.metrics === 'string' ? JSON.parse(row.metrics) : row.metrics;
+  // Use each record's own item set and stored metrics. Never apply the new
+  // 12-item permutation/denominator retrospectively to a 15-item record.
+  const count = state?.initial?.length;
+  const sameItems = (ranking) =>
+    Array.isArray(ranking) &&
+    ranking.length === count &&
+    new Set(ranking).size === count &&
+    ranking.every((id) => state.initial.includes(id));
   if (
     !m?.eligible ||
+    ![12, 15].includes(count) ||
+    !sameItems(state.initial) ||
+    !sameItems(state.final) ||
+    !sameItems(m.ai) ||
     state.questionnaire?.length !== 5 ||
-    state.exposures?.length !== 15 ||
+    !state.questionnaire.every(
+      (n) => Number.isInteger(n) && n >= 1 && n <= 7,
+    ) ||
+    state.exposures?.length !== count ||
+    state.reasons?.length !== count ||
+    !sameItems(state.exposures.map((e) => e.item)) ||
+    state.reasons.some((r, i) => r.item !== state.exposures[i].item) ||
     state.exposures.some((e) => e.skipped)
   )
     continue;
   summary.push({
     session_id: row.id,
     version: row.version,
+    item_count: count,
+    permutation_id:
+      m.permutationId ??
+      ([
+        'survival-voice-v1',
+        'survival-voice-v1.0',
+        'survival-voice-v1.1',
+      ].includes(row.version)
+        ? 'legacy-cyclic-shift-3'
+        : 'unrecorded'),
+    scoring_version: m.scoringVersion ?? 'legacy-bci',
     condition: row.condition,
     age: row.age,
     gender: row.gender,
@@ -44,6 +73,9 @@ for (const row of usable) {
     initial_distance: m.initialDistance,
     final_distance: m.finalDistance,
     bci: m.bci,
+    positive_conformity_01: m.positiveConformity01 ?? null,
+    alignment_01: m.alignment01 ?? null,
+    maximum_distance: m.maximumDistance ?? Math.floor(count ** 2 / 2),
     social_presence_5: m.socialPresence5,
     social_presence_4: m.socialPresence4,
     changed_items: m.changedItems,
@@ -78,7 +110,7 @@ const csv = (records) => {
     const text = String(v ?? '');
     return (
       '"' +
-      (/^[=+@\-\t\r]/.test(text) ? "'" : '') +
+      (typeof v === 'string' && /^[=+@\-\t\r]/.test(text) ? "'" : '') +
       text.replaceAll('"', '""') +
       '"'
     );
@@ -101,5 +133,5 @@ for (const [name, data] of [
     flag: 'wx',
   });
 console.log(
-  `Exported ${summary.length} completed study sessions. Preview, incomplete, withdrawn, and skipped-audio sessions are excluded. Raw source query is unchanged.`,
+  `Exported ${summary.length} completed study sessions. Preview, incomplete, withdrawn, and skipped-audio sessions are excluded. Keep protocol versions/item counts separate; stored legacy outcomes are not recomputed. Raw source query is unchanged.`,
 );

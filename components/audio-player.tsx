@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { Play, Volume2, RotateCcw } from 'lucide-react';
+import { Play, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { View } from '@/lib/protocol';
@@ -84,33 +84,10 @@ export function AudioPlayer({
     void play();
   });
   useEffect(() => {
-    if (session.mode !== 'study') return;
+    if (!session.audioSrc) return;
     const timer = setTimeout(() => autoPlay(), 0);
     return () => clearTimeout(timer);
-  }, [session.mode]);
-  if (session.mode === 'preview')
-    return (
-      <div className="audio-panel preview-audio">
-        <Volume2 />
-        <h3>语音文件待加入</h3>
-        <p>
-          这是流程预览。正式实验中，这里会播放对应条件的预录语音，并在完整播放后允许继续。
-        </p>
-        <Button
-          className="primary-action"
-          disabled={busy}
-          onClick={() =>
-            void send('exposure', {
-              item: session.currentItem,
-              skipped: true,
-              interruptions: 0,
-            })
-          }
-        >
-          继续预览（无语音）
-        </Button>
-      </div>
-    );
+  }, [session.audioSrc]);
   return (
     <div className="audio-panel">
       <div
@@ -121,7 +98,16 @@ export function AudioPlayer({
           <span key={i} style={{ animationDelay: `${i * 80}ms` }} />
         ))}
       </div>
-      <h3>AI 语音助手</h3>
+      <h3>
+        {session.mode === 'preview'
+          ? 'AI 语音助手 · 流畅语音试听'
+          : 'AI 语音助手'}
+      </h3>
+      {session.mode === 'preview' && (
+        <p>
+          预览仅播放已上传的流畅语音，不代表正式随机分组。停顿版语音待加入。
+        </p>
+      )}
       <output className="audio-status">{message}</output>
       {/* A transcript would change the auditory experimental stimulus. */}
       {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
@@ -220,6 +206,24 @@ export function AudioPlayer({
             继续
           </Button>
         </>
+      )}
+      {session.mode === 'preview' && (
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={() => {
+            // A skipped test clip is recorded explicitly and never enters study exports.
+            playing.current = false;
+            media.current?.pause();
+            void send('exposure', {
+              item: session.currentItem,
+              skipped: true,
+              interruptions: interruptions.current,
+            });
+          }}
+        >
+          仅测试：跳过本段语音
+        </Button>
       )}
     </div>
   );

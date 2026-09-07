@@ -4,16 +4,13 @@ const ids = [
   'flashlight',
   'knife',
   'map',
-  'raincoat',
   'compass',
   'gauze',
   'pistol',
   'parachute',
-  'salt',
   'water',
   'book',
   'sunglasses',
-  'vodka',
   'coat',
   'mirror',
 ];
@@ -59,8 +56,10 @@ async function action(action, fields = {}, expected = 200) {
     expected,
   );
 }
-const start = { consent: true, age: 28, gender: 'undisclosed', preview: true };
-await request('/api/session', { ...start, age: 17 }, 400);
+const start = { consent: true, age: 12, gender: 'undisclosed', preview: true };
+for (const age of [11, 12.5, '12', Number.MAX_SAFE_INTEGER + 1, null])
+  await request('/api/session', { ...start, age }, 400);
+await request('/api/session', { ...start, consent: false }, 400);
 await request('/api/session', start, 403, 'https://unrelated.invalid');
 await request('/api/session', { ...start, preview: false }, 403);
 await request('/api/session', start, 201);
@@ -103,10 +102,19 @@ for (const item of ids) {
   });
   await request('/api/study');
   assert.ok(view.reason, 'reason must survive a reload');
+  assert.equal(view.protocolMismatch, false);
+  assert.equal(view.audioSrc, `/audio/fluent/${item}.mp3`);
+  const clip = await fetch(base + view.audioSrc, { method: 'HEAD' });
+  assert.equal(clip.status, 200);
+  assert.match(clip.headers.get('content-type'), /^audio\//);
   await action('exposure', { item, skipped: true, interruptions: 0 });
 }
 assert.equal(view.phase, 'revise');
-assert.equal(view.ai.length, 15);
+assert.equal(view.ai.length, 12);
+assert.deepEqual(
+  ids.map((item) => view.ai.indexOf(item) + 1),
+  [3, 6, 8, 1, 10, 4, 2, 11, 5, 12, 9, 7],
+);
 await action('final', { ranking: ids, events: [] });
 await action('submit', { answers: [4, 4, 4, 0, 4], responseMs: 2000 }, 400);
 const finalAction = {
@@ -127,6 +135,10 @@ await request('/api/session', { ...start, restart: true }, 201);
 await action('withdraw');
 assert.equal(view.phase, 'withdrawn');
 await action('instructions', {}, 409);
+for (const age of [17, 18, 101]) {
+  await request('/api/session', { ...start, age, restart: true }, 201);
+  await action('withdraw');
+}
 console.log(
   'API checks passed: preview flow, consent and age validation, CSRF rejection, closed live collection, resume, fixed discussion order, ranking concealment, idempotent completion, resubmission lock, withdrawal.',
 );

@@ -1,15 +1,14 @@
 import { env } from 'cloudflare:workers';
-import { STUDY } from './study-config';
-import { audioPath, REQUIRED_AUDIO } from './audio-manifest';
+import { STUDY, collectionReady } from './study-config';
+import { REQUIRED_AUDIO } from './audio-manifest';
+import { view } from './session-view';
+export { view } from './session-view';
 import {
   VERSION,
-  DISCUSSION_ORDER,
-  aiRanking,
+  isEligibleAge,
   freshState,
   type Condition,
   type Mode,
-  type State,
-  type View,
 } from './protocol';
 
 export type SessionRow = {
@@ -90,31 +89,6 @@ export async function findSession(request: Request) {
     .bind(await hash(key))
     .first<SessionRow>();
 }
-export function view(row: SessionRow): View {
-  const s: State = JSON.parse(row.state),
-    index = s.exposures.length,
-    currentItem = DISCUSSION_ORDER[index] ?? null;
-  const reveal = ['revise', 'questionnaire', 'complete'].includes(s.phase);
-  return {
-    id: row.id,
-    mode: row.mode,
-    revision: row.revision,
-    phase: s.phase,
-    initial: s.initial,
-    final: s.final,
-    ai: reveal ? aiRanking(s.initial) : null,
-    discussionIndex: index,
-    currentItem,
-    reason: s.reasons[index]?.text ?? null,
-    audioSrc:
-      row.mode === 'study' && s.reasons[index] && currentItem
-        ? audioPath(row.condition, currentItem)
-        : null,
-    audioCheckPassed: s.audioPassed,
-    questionnaire: s.questionnaire,
-    completionCode: row.completion_code,
-  };
-}
 export const failure = (error: unknown) =>
   json(
     {
@@ -126,14 +100,7 @@ export const failure = (error: unknown) =>
     error instanceof StudyError ? error.status : 503,
   );
 export function studyConfigured() {
-  return (
-    STUDY.open &&
-    STUDY.consentApproved &&
-    STUDY.stimuliApproved &&
-    !!STUDY.researcher &&
-    !!STUDY.contact &&
-    !!STUDY.retentionDescription
-  );
+  return collectionReady(STUDY);
 }
 export async function checkAssets(request: Request) {
   // Check the exact deployed asset set before accepting a real participant.
@@ -156,9 +123,7 @@ export async function createSession(
     return json({ session: view(existing) });
   if (
     b.consent !== true ||
-    !Number.isInteger(b.age) ||
-    Number(b.age) < 18 ||
-    Number(b.age) > 100 ||
+    !isEligibleAge(b.age) ||
     !['woman', 'man', 'other', 'undisclosed'].includes(String(b.gender))
   )
     throw new StudyError('请确认参与同意，并填写有效的年龄和性别选项。');
@@ -197,7 +162,9 @@ export async function createSession(
     now = new Date().toISOString(),
     id = crypto.randomUUID();
   const condition: Condition =
-    crypto.getRandomValues(new Uint8Array(1))[0] < 128 ? 'fluent' : 'disfluent';
+    mode === 'preview' || crypto.getRandomValues(new Uint8Array(1))[0] < 128
+      ? 'fluent'
+      : 'disfluent';
   const state = JSON.stringify(freshState(now));
   try {
     const result = await db()

@@ -17,7 +17,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import { RankingBoard, RankingReference } from '@/components/ranking-board';
 import { AudioPlayer } from '@/components/audio-player';
-import { ITEMS, QUESTIONS, LIKERT_LABELS, type View } from '@/lib/protocol';
+import {
+  ITEMS,
+  QUESTIONS,
+  LIKERT_LABELS,
+  MINIMUM_AGE,
+  isEligibleAge,
+  type View,
+} from '@/lib/protocol';
 import { usePreviewTools } from '@/hooks/use-preview-tools';
 
 type Config = {
@@ -41,6 +48,7 @@ const titles: Record<string, string> = {
   questionnaire: '回顾交流体验',
   complete: '感谢您的参与',
   withdrawn: '您已退出实验',
+  updated: '实验内容已更新',
 };
 const phases = Object.keys(titles);
 
@@ -48,7 +56,7 @@ export default function Home() {
   const [config, setConfig] = useState<Config | null>(null),
     [session, setSession] = useState<View | null>(null);
   const [entry, setEntry] = useState('consent'),
-    [adult, setAdult] = useState(false),
+    [eligibilityConfirmed, setEligibilityConfirmed] = useState(false),
     [consent, setConsent] = useState(false);
   const [age, setAge] = useState(''),
     [gender, setGender] = useState(''),
@@ -66,7 +74,9 @@ export default function Home() {
   const card = useRef<HTMLElement>(null),
     actionLock = useRef(false),
     hiddenCount = useRef(0);
-  const phase = session?.phase ?? entry,
+  const phase = session?.protocolMismatch
+      ? 'updated'
+      : (session?.phase ?? entry),
     preview = session
       ? session.mode === 'preview'
       : previewRequested || !config?.open;
@@ -171,7 +181,7 @@ export default function Home() {
     });
   const begin = () =>
     request('/api/session', {
-      consent: consent && adult,
+      consent: consent && eligibilityConfirmed,
       age: Number(age),
       gender,
       invitation: invitation.trim(),
@@ -182,9 +192,11 @@ export default function Home() {
     setSession(null);
     setRestart(true);
     setEntry('consent');
-    setAdult(false);
+    setEligibilityConfirmed(false);
     setConsent(false);
     setError('');
+    setFailedRequest(null);
+    setWithdraw(false);
   };
   usePreviewTools(preview, phase, busy, restartPreview);
   return (
@@ -222,7 +234,7 @@ export default function Home() {
         />
         {preview && (
           <div className="preview-ribbon">
-            预览版 · 暂无语音刺激 · 本次回答不计入正式研究
+            预览版 · 12 项物品 · 流畅语音试听 · 本次回答不计入正式研究
           </div>
         )}
         <div
@@ -274,6 +286,26 @@ export default function Home() {
               )}
             </div>
           )}
+          {phase === 'updated' && session && (
+            <div className="notice-card">
+              <RotateCcw />
+              <div>
+                <p>
+                  本页已更新为 12 项物品。旧版记录会保留，但不能与新流程混用。
+                </p>
+                {preview ? (
+                  <Button disabled={busy} onClick={restartPreview}>
+                    重新开始 12 项预览
+                  </Button>
+                ) : (
+                  <p>请联系研究人员处理您的原有参与记录，不要重新参加。</p>
+                )}
+                {session.completionCode && (
+                  <p>原完成码：{session.completionCode}</p>
+                )}
+              </div>
+            </div>
+          )}
           {phase === 'consent' && (
             <>
               <div className="notice-card">
@@ -302,6 +334,9 @@ export default function Home() {
                 <p>
                   研究结束后会解释具体研究目的。为避免影响您的判断，部分研究细节将在最后告知。
                 </p>
+                <p className="draft-note">
+                  未成年人正式参与前，研究人员需落实经审核的监护人许可、参与者本人同意及数据保护流程。本页的勾选不能代替监护人许可；预览测试请勿提交未成年人的真实资料。
+                </p>
                 {config?.contact ? (
                   <p>
                     研究人员：{config.researcher}（{config.institution}）<br />
@@ -323,13 +358,16 @@ export default function Home() {
               </div>
               <fieldset className="consent-checks">
                 <legend className="sr-only">参与同意</legend>
-                <label className="consent-option" htmlFor="adult-consent">
+                <label className="consent-option" htmlFor="age-eligibility">
                   <Checkbox
-                    id="adult-consent"
-                    checked={adult}
-                    onCheckedChange={(v) => setAdult(v === true)}
+                    id="age-eligibility"
+                    checked={eligibilityConfirmed}
+                    onCheckedChange={(v) => setEligibilityConfirmed(v === true)}
                   />
-                  <span>我已年满 18 周岁，已阅读并理解以上说明。</span>
+                  <span>
+                    {preview ? '本次测试使用的虚构年龄不小于' : '我已年满'}{' '}
+                    {MINIMUM_AGE} 周岁，已阅读并理解以上说明。
+                  </span>
                 </label>
                 <label className="consent-option" htmlFor="study-consent">
                   <Checkbox
@@ -348,7 +386,7 @@ export default function Home() {
                 </Button>
                 <Button
                   className="primary-action"
-                  disabled={!adult || !consent || !config}
+                  disabled={!eligibilityConfirmed || !consent || !config}
                   onClick={() => setEntry('demographics')}
                 >
                   同意并继续
@@ -359,14 +397,17 @@ export default function Home() {
           )}
           {phase === 'demographics' && (
             <div className="form-stack">
-              <p>以下信息仅用于研究分析。请按实际情况填写。</p>
+              <p>
+                {preview
+                  ? '预览仅供研究人员测试。请使用虚构年龄和其他测试信息，不要填写未成年人的真实资料。'
+                  : '以下信息仅用于研究分析。请按实际情况填写。'}
+              </p>
               <label className="field-label" htmlFor="age">
                 年龄（周岁）
                 <Input
                   id="age"
                   type="number"
-                  min={18}
-                  max={100}
+                  min={MINIMUM_AGE}
                   inputMode="numeric"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
@@ -414,9 +455,7 @@ export default function Home() {
                     busy ||
                     !gender ||
                     !age ||
-                    !Number.isInteger(Number(age)) ||
-                    Number(age) < 18 ||
-                    Number(age) > 100 ||
+                    !isEligibleAge(Number(age)) ||
                     (!preview && !invitation.trim())
                   }
                   onClick={() => void begin()}
@@ -607,7 +646,7 @@ export default function Home() {
               <p>您可以关闭此页面。</p>
             </div>
           )}
-          {session && !['complete', 'withdrawn'].includes(phase) && (
+          {session && !['complete', 'withdrawn'].includes(session.phase) && (
             <footer className="experiment-footer">
               {withdraw ? (
                 <div className="withdraw-confirm">
