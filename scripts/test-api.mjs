@@ -14,8 +14,8 @@ const ids = [
   'coat',
   'mirror',
 ];
-let cookie = '',
-  view;
+const cookies = new Map();
+let view;
 async function request(
   path,
   body,
@@ -27,7 +27,13 @@ async function request(
     method: body ? 'POST' : 'GET',
     headers: {
       ...(body ? { 'Content-Type': 'application/json', Origin: origin } : {}),
-      ...(cookie && withCookie ? { Cookie: cookie } : {}),
+      ...(cookies.size && withCookie
+        ? {
+            Cookie: [...cookies]
+              .map(([name, value]) => `${name}=${value}`)
+              .join('; '),
+          }
+        : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -39,8 +45,13 @@ async function request(
     result = { error: raw.slice(0, 300) };
   }
   assert.equal(response.status, expected, `${path}: ${JSON.stringify(result)}`);
-  if (response.headers.get('set-cookie'))
-    cookie = response.headers.get('set-cookie').split(';')[0];
+  // A hosted response may also rotate an infrastructure cookie. Preserve the
+  // experiment cookie independently, like a browser; never log cookie values.
+  for (const line of response.headers.getSetCookie()) {
+    const pair = line.split(';')[0],
+      separator = pair.indexOf('=');
+    cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+  }
   if (result.session) view = result.session;
   return result;
 }
