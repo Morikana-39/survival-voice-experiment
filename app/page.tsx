@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ShieldCheck,
   Volume2,
-  Compass,
   RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,9 +21,25 @@ import {
   QUESTIONS,
   LIKERT_LABELS,
   MINIMUM_AGE,
+  MAXIMUM_AGE,
   isEligibleAge,
   type View,
 } from '@/lib/protocol';
+import {
+  ConsentInformation,
+  InstructionInformation,
+  ScenarioInformation,
+  INFORMATION_TITLES,
+  type InformationPage,
+} from '@/components/study-information';
+import { reviewPages } from '@/lib/navigation';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from '@/components/ui/alert-dialog';
 import { usePreviewTools } from '@/hooks/use-preview-tools';
 
 type Config = {
@@ -41,10 +56,10 @@ const titles: Record<string, string> = {
   demographics: '基本信息',
   instructions: '实验说明',
   audio: '先确认声音',
-  scenario: '沙漠中的一次决定',
-  initial: '您的初始排序',
-  discussion: '交换想法',
-  revise: '您的最终决定',
+  scenario: '沙漠中的一次经历',
+  initial: '您当前的排序',
+  discussion: '交流想法',
+  revise: '重新评估排序',
   questionnaire: '回顾交流体验',
   complete: '感谢您的参与',
   withdrawn: '您已退出实验',
@@ -65,6 +80,8 @@ export default function Home() {
     [error, setError] = useState(''),
     [fading, setFading] = useState(false),
     [withdraw, setWithdraw] = useState(false);
+  const [review, setReview] = useState<InformationPage | null>(null);
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [restart, setRestart] = useState(false),
     [previewRequested, setPreviewRequested] = useState(false);
   const [failedRequest, setFailedRequest] = useState<{
@@ -80,6 +97,7 @@ export default function Home() {
     preview = session
       ? session.mode === 'preview'
       : previewRequested || !config?.open;
+  const history = reviewPages(phase);
   const step = Math.min(10, phases.indexOf(phase) + 1);
   const load = useCallback(async () => {
     try {
@@ -197,6 +215,10 @@ export default function Home() {
     setError('');
     setFailedRequest(null);
     setWithdraw(false);
+    setReview(null);
+    setResetConfirm(false);
+    setAge('');
+    setGender('');
   };
   usePreviewTools(preview, phase, busy, restartPreview);
   return (
@@ -217,7 +239,7 @@ export default function Home() {
       >
         <header className="experiment-header">
           <div>
-            <p className="eyebrow">荒漠生存决策研究</p>
+            <p className="eyebrow">荒漠生存情境研究</p>
             <p className="step-label">
               {phase === 'withdrawn' ? '参与已结束' : `第 ${step} 步，共 10 步`}
             </p>
@@ -237,6 +259,17 @@ export default function Home() {
             预览版 · 12 项物品 · 流畅语音试听 · 本次回答不计入正式研究
           </div>
         )}
+        {preview && config && (
+          <div className="preview-reset">
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setResetConfirm(true)}
+            >
+              重置实验（仅预览）
+            </Button>
+          </div>
+        )}
         <div
           className={`content-column ${fading ? 'page-exit' : 'page-enter'}`}
           key={sceneKey}
@@ -254,11 +287,13 @@ export default function Home() {
                 {titles[phase]}
               </h1>
               <p>
-                {phase === 'discussion'
-                  ? `第 ${(session?.discussionIndex ?? 0) + 1} 项，共 ${ITEMS.length} 项 · 请按提示依次交流`
-                  : phase === 'consent'
-                    ? '请先阅读参与说明。整个任务预计需要 20–30 分钟。'
-                    : ''}
+                {session?.warmupPending
+                  ? '请先完整收听交流前的语音。'
+                  : phase === 'discussion'
+                    ? `第 ${(session?.discussionIndex ?? 0) + 1} 项，共 ${ITEMS.length} 项 · 请按提示完成交流`
+                    : phase === 'consent'
+                      ? '请先阅读参与说明。整个任务预计需要 20–30 分钟。'
+                      : ''}
               </p>
             </div>
           </div>
@@ -291,10 +326,10 @@ export default function Home() {
               <RotateCcw />
               <div>
                 <p>
-                  本页已更新为 12 项物品。旧版记录会保留，但不能与新流程混用。
+                  实验内容已更新。旧版记录会保留，但不能与新流程混用。
                 </p>
                 {preview ? (
-                  <Button disabled={busy} onClick={restartPreview}>
+                  <Button disabled={busy} onClick={() => setResetConfirm(true)}>
                     重新开始 12 项预览
                   </Button>
                 ) : (
@@ -317,45 +352,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="consent-copy">
-                <p>
-                  本研究关注人们与 AI
-                  语音助手交流时的决策与体验。您将阅读一个虚构的沙漠生存情境，对{' '}
-                  {ITEMS.length}{' '}
-                  件物品排序，逐项输入简短理由、收听助手的看法，然后再次排序并填写
-                  5 道问卷题。
-                </p>
-                <p>
-                  参与完全自愿，您可以在最终提交前点击“退出实验”。退出时会清除本次已记录的回答与基本信息，并保留参与码的使用状态以防止重复参加。虚构情境涉及飞机迫降；如感到不适，可随时退出。
-                </p>
-                <p>
-                  我们记录年龄、性别选项、排序、文字理由、语音播放情况和作答时间，不要求姓名或手机号，也不录制您的声音。请不要在理由中输入身份或联系方式。浏览器使用会话标识来恢复进度并防止重复提交。
-                </p>
-                <p>
-                  研究结束后会解释具体研究目的。为避免影响您的判断，部分研究细节将在最后告知。
-                </p>
-                <p className="draft-note">
-                  未成年人正式参与前，研究人员需落实经审核的监护人许可、参与者本人同意及数据保护流程。本页的勾选不能代替监护人许可；预览测试请勿提交未成年人的真实资料。
-                </p>
-                {config?.contact ? (
-                  <p>
-                    研究人员：{config.researcher}（{config.institution}）<br />
-                    联系方式：{config.contact}
-                    <br />
-                    数据保存：{config.retention}
-                    {config.ethics && (
-                      <>
-                        <br />
-                        伦理审核编号：{config.ethics}
-                      </>
-                    )}
-                  </p>
-                ) : (
-                  <p className="draft-note">
-                    预览提示：正式招募前，研究人员将补充机构、联系方式、数据保存期限和经确认的知情同意说明。
-                  </p>
-                )}
-              </div>
+              <ConsentInformation config={config} />
               <fieldset className="consent-checks">
                 <legend className="sr-only">参与同意</legend>
                 <label className="consent-option" htmlFor="age-eligibility">
@@ -365,8 +362,8 @@ export default function Home() {
                     onCheckedChange={(v) => setEligibilityConfirmed(v === true)}
                   />
                   <span>
-                    {preview ? '本次测试使用的虚构年龄不小于' : '我已年满'}{' '}
-                    {MINIMUM_AGE} 周岁，已阅读并理解以上说明。
+                    {preview ? '本次测试使用的虚构年龄在' : '我的年龄在'}{' '}
+                    {MINIMUM_AGE}–{MAXIMUM_AGE} 周岁之间，已阅读并理解以上说明。
                   </span>
                 </label>
                 <label className="consent-option" htmlFor="study-consent">
@@ -381,7 +378,7 @@ export default function Home() {
                 </label>
               </fieldset>
               <div className="action-row">
-                <Button variant="ghost" onClick={() => setEntry('withdrawn')}>
+                <Button variant="ghost" onClick={() => setWithdraw(true)}>
                   不同意并退出
                 </Button>
                 <Button
@@ -408,10 +405,11 @@ export default function Home() {
                   id="age"
                   type="number"
                   min={MINIMUM_AGE}
+                  max={MAXIMUM_AGE}
                   inputMode="numeric"
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
-                  placeholder="请输入年龄"
+                  placeholder="请输入 12–65 周岁的年龄"
                 />
               </label>
               <fieldset>
@@ -468,37 +466,7 @@ export default function Home() {
           )}
           {phase === 'instructions' && (
             <>
-              <div className="instruction-steps">
-                {[
-                  [
-                    '独立判断',
-                    '先阅读情境，将全部物品按生存重要性排序。没有必须达到的分数。',
-                  ],
-                  [
-                    '逐项交流',
-                    '您先说明理由，再听 AI 语音助手的看法。讨论顺序由实验设定，与您的排名无关。',
-                  ],
-                  [
-                    '再次决定',
-                    '所有物品讨论完后，您将看到双方排序，可自行决定保留或调整。',
-                  ],
-                  ['分享感受', '最后请根据真实体验回答问卷。'],
-                ].map(([title, detail], i) => (
-                  <div key={title}>
-                    <span>{i + 1}</span>
-                    <div>
-                      <h2>{title}</h2>
-                      <p>{detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="notice-card">
-                <Compass />
-                <p>
-                  请独立完成，不搜索资料、不与他人讨论。助手的意见供参考，不一定完整或正确。是否采纳由您决定。
-                </p>
-              </div>
+              <InstructionInformation />
               <Next busy={busy} onClick={() => void send('instructions')}>
                 开始声音检查
               </Next>
@@ -507,81 +475,75 @@ export default function Home() {
           {phase === 'audio' && <SoundCheck send={send} busy={busy} />}
           {phase === 'scenario' && (
             <>
-              <div className="scenario-facts">
-                <span>8 月中旬</span>
-                <span>上午 10:00</span>
-                <span>美国西南部 · 索诺兰沙漠</span>
-              </div>
-              <div className="scenario-copy">
-                <p>
-                  想象您与同行者正在美国旅行。一个 8 月中旬的上午，约 10
-                  点，你们乘坐的小型飞机在索诺兰沙漠迫降。
-                </p>
-                <p>
-                  你们都能正常行动，但无法使用通讯设备。周围炎热干燥，暂时看不到居民点；救援到达的时间不确定。你们从飞机中取出了下面{' '}
-                  {ITEMS.length} 件物品。
-                </p>
-                <p>
-                  您的任务是根据这些物品对团队生存的重要性排序：
-                  <strong>第 1 位最重要，第 {ITEMS.length} 位最不重要</strong>
-                  。请只依据此情境和自己的判断完成任务。
-                </p>
-              </div>
-              <p className="subtle">
-                这是用于研究的虚构情境，不构成现实中的野外求生建议。物品数量及规格在排序时可查看。
-              </p>
+              <ScenarioInformation />
               <Next busy={busy} onClick={() => void send('scenario')}>
                 开始独立排序
               </Next>
             </>
           )}
           {phase === 'initial' && session && (
-            <RankingBoard
-              initial={[]}
-              draftKey={`${session.id}-initial`}
-              busy={busy}
-              onConfirm={(ranking, events) =>
-                void send('initial', { ranking, events })
-              }
-            />
-          )}
-          {phase === 'discussion' && session && (
-            <div className="discussion-layout">
-              <RankingReference
-                order={session.initial}
-                title="您的初始排序"
-                current={session.currentItem}
+            <>
+              <ScenarioInformation />
+              <RankingBoard
+                initial={[]}
+                draftKey={`${session.id}-initial`}
+                busy={busy}
+                onConfirm={(ranking, events) =>
+                  void send('initial', { ranking, events })
+                }
               />
-              <Discussion
-                key={session.currentItem}
+            </>
+          )}
+          {phase === 'discussion' &&
+            session &&
+            (session.warmupPending ? (
+              <AudioPlayer
+                key="warmup"
                 session={session}
                 send={send}
                 busy={busy}
               />
-            </div>
-          )}
+            ) : (
+              <div className="discussion-layout">
+                <RankingReference
+                  order={session.initial}
+                  title="您的当前排序"
+                  current={session.currentItem}
+                />
+                <Discussion
+                  key={session.currentItem}
+                  session={session}
+                  send={send}
+                  busy={busy}
+                />
+              </div>
+            ))}
           {phase === 'revise' && session && (
             <>
               <p className="stage-intro">
-                逐项交流已完成。下面是您最初的排序与助手的排序。请根据自己的判断，调整下方的最终排序；也可以保持不变。
+                逐项交流已完成。下面展示您之前的排序与助手提供的排序建议。请根据自己的判断修改或确认下方排序。
               </p>
-              <div className="comparison">
-                <RankingReference
-                  order={session.initial}
-                  title="您的初始排序"
-                />
-                <RankingReference order={session.ai!} title="AI 助手的排序" />
+              <ScenarioInformation />
+              <div className="revision-layout">
+                <aside className="ai-suggestion">
+                  <RankingReference
+                    order={session.ai!}
+                    title="AI 助手的排序建议"
+                  />
+                </aside>
+                <section className="editable-ranking" aria-label="您的当前排序">
+                  <h2>您的当前排序</h2>
+                  <RankingBoard
+                    initial={session.initial}
+                    draftKey={`${session.id}-final`}
+                    final
+                    busy={busy}
+                    onConfirm={(ranking, events) =>
+                      void send('final', { ranking, events })
+                    }
+                  />
+                </section>
               </div>
-              <h2 className="editor-title">调整您的最终排序</h2>
-              <RankingBoard
-                initial={session.initial}
-                draftKey={`${session.id}-final`}
-                final
-                busy={busy}
-                onConfirm={(ranking, events) =>
-                  void send('final', { ranking, events })
-                }
-              />
             </>
           )}
           {phase === 'questionnaire' && session && (
@@ -613,13 +575,16 @@ export default function Home() {
                 <h2>研究说明</h2>
                 <p>
                   本研究考察 AI
-                  语音中是否出现填充性停顿（例如“嗯”“呃”）对人们的决策和交流体验的影响。参与者被随机分配到两种语音条件之一。所有语音均为事先准备的录音，并非根据您输入的理由即时生成。
+                  语音中的填充性停顿（例如“嗯”“呃”）如何影响人们的判断调整和交流体验。参与者被随机分配到两种语音条件之一，两种条件的区别仅在于语音中是否包含填充性停顿。所有语音均为事先准备的录音，并非根据您输入的理由实时生成。
+                  {preview
+                    ? '本次为流程预览，试听的是流畅语音，不属于正式随机分组。'
+                    : `您被分配到的是${session.condition === 'disfluent' ? '填充性停顿' : '流畅语音'}条件。`}
                 </p>
                 <p>
-                  助手的排序由您的初始排序按固定规则转换得到，并不是专家给出的标准答案。研究关注您听取意见后如何调整排序，以及您感受到的社会临场感。预先不说明这些细节，是为了减少对判断的影响。
+                  助手的排序由您的当前排序按固定规则转换得到，并不是专家给出的标准答案。研究关注您听取意见后如何调整排序，以及您感受到的社会临场感。预先不说明这些细节，是为了减少对判断的影响。
                 </p>
                 <p>
-                  您无需迎合助手的意见，采纳或不采纳均没有对错。感谢您的时间与认真参与。
+                  您无需迎合助手提供的信息，采纳或不采纳均没有对错。感谢您的时间与认真参与。
                 </p>
                 {config?.contact && (
                   <p>
@@ -631,7 +596,10 @@ export default function Home() {
               {preview && (
                 <div className="action-row">
                   <p>您可以重新体验；新的预览会话仍与正式数据分开。</p>
-                  <Button variant="outline" onClick={restartPreview}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setResetConfirm(true)}
+                  >
                     <RotateCcw />
                     重新预览
                   </Button>
@@ -646,45 +614,144 @@ export default function Home() {
               <p>您可以关闭此页面。</p>
             </div>
           )}
-          {session && !['complete', 'withdrawn'].includes(session.phase) && (
+          {phase === 'demographics' && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setEntry('consent')}
+            >
+              返回
+            </Button>
+          )}
+          {!!history.length && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setReview(history[0])}
+            >
+              返回
+            </Button>
+          )}
+          {!['complete', 'withdrawn'].includes(session?.phase ?? phase) && (
             <footer className="experiment-footer">
-              {withdraw ? (
-                <div className="withdraw-confirm">
-                  <p>退出将清除本次已记录的回答与基本信息。确认退出吗？</p>
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => setWithdraw(false)}
-                  >
-                    继续参与
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() => {
-                      void send('withdraw');
-                      setWithdraw(false);
-                    }}
-                  >
-                    确认退出
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <span>已确认的进度会自动保存</span>
-                  <Button
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => setWithdraw(true)}
-                  >
-                    退出实验
-                  </Button>
-                </>
-              )}
+              <span>已确认的进度会自动保存</span>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setWithdraw(true)}
+              >
+                退出实验
+              </Button>
             </footer>
           )}
         </div>
       </section>
+      <Dialog
+        open={!!review}
+        onOpenChange={(open) => {
+          if (!open) setReview(null);
+        }}
+      >
+        <DialogContent className="information-review" showCloseButton={false}>
+          <DialogTitle>
+            {review ? INFORMATION_TITLES[review] : '回顾说明'}
+          </DialogTitle>
+          {review === 'consent' && <ConsentInformation config={config} />}
+          {review === 'instructions' && <InstructionInformation />}
+          {review === 'scenario' && <ScenarioInformation />}
+          <div className="button-row">
+            {review && history.indexOf(review) < history.length - 1 && (
+              <Button
+                variant="outline"
+                onClick={() => setReview(history[history.indexOf(review) + 1])}
+              >
+                返回
+              </Button>
+            )}
+            <Button onClick={() => setReview(null)}>返回当前步骤</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setReview(null);
+                setWithdraw(true);
+              }}
+            >
+              退出实验
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={withdraw}
+        onOpenChange={(open) => {
+          if (!busy) setWithdraw(open);
+        }}
+      >
+        <AlertDialogContent className="study-confirmation">
+          <AlertDialogTitle>确认退出实验？</AlertDialogTitle>
+          <AlertDialogDescription>
+            {session
+              ? '确认退出后，您将无法再次参与本实验。本次实验产生的回答记录与基本信息将被删除；仅保留匿名参与状态信息，以避免重复参与。'
+              : '您尚未开始正式实验，本页尚未提交研究数据。确认离开吗？开始正式实验后，若确认退出，将无法再次参与。'}
+            {preview
+              ? ' 本次为测试预览，研究人员仍可通过“重置实验”重新测试。'
+              : ''}
+          </AlertDialogDescription>
+          <div className="button-row">
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setWithdraw(false)}
+            >
+              返回
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={async () => {
+                if (session) {
+                  const result = await send('withdraw');
+                  if (!result) return;
+                } else {
+                  setEntry('withdrawn');
+                  setAge('');
+                  setGender('');
+                  setConsent(false);
+                  setEligibilityConfirmed(false);
+                }
+                setWithdraw(false);
+              }}
+            >
+              确认退出
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={resetConfirm}
+        onOpenChange={(open) => {
+          if (!busy) setResetConfirm(open);
+        }}
+      >
+        <AlertDialogContent className="study-confirmation">
+          <AlertDialogTitle>重新开始预览？</AlertDialogTitle>
+          <AlertDialogDescription>
+            将开始新的测试流程。之前的预览记录不会计入正式研究；此按钮仅供测试，正式参与不可用。
+          </AlertDialogDescription>
+          <div className="button-row">
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => setResetConfirm(false)}
+            >
+              返回
+            </Button>
+            <Button disabled={busy || !preview} onClick={restartPreview}>
+              重置实验
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }
@@ -843,10 +910,10 @@ function Discussion({
   return (
     <div className="discussion-focus">
       <div className="item-focus-title">
-        <span className="discussing-tag">正在讨论 →</span>
+        <span className="discussing-tag">当前物品 →</span>
         <h2>{item.label}</h2>
         <p>{item.detail}</p>
-        <span>您的初始排名：第 {session.initial.indexOf(item.id) + 1} 位</span>
+        <span>您的排名：第 {session.initial.indexOf(item.id) + 1} 位</span>
       </div>
       {!session.reason ? (
         <div className="reason-form">
@@ -856,7 +923,7 @@ function Discussion({
             value={reason}
             maxLength={500}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="请用一两句话说明您的考虑，无需查找资料。"
+            placeholder="请用一两句话说明您的考虑。"
             disabled={busy}
           />
           <div className="reason-footer">
@@ -872,7 +939,7 @@ function Discussion({
                 })
               }
             >
-              {busy ? '正在保存…' : '提交理由并听取助手意见'}
+              {busy ? '正在保存…' : '说明理由并听取助手建议'}
               <ArrowRight />
             </Button>
           </div>
@@ -934,11 +1001,9 @@ function Questionnaire({
     <div className="questionnaire">
       <p className="stage-intro">
         排序任务已完成。请回想刚才与 AI
-        语音助手的交流，选择您对以下描述的同意程度。没有正确或错误的答案。
+        语音助手的交流，选择您对以下描述的同意程度。
       </p>
-      <p className="scale-intro">
-        1 = 非常不同意，4 = 既不同意也不反对，7 = 非常同意
-      </p>
+      <p className="scale-intro">1 = 非常不同意，4 = 一般，7 = 非常同意</p>
       {QUESTIONS.map((q, index) => (
         <fieldset key={q.id} className="likert-question">
           <legend>
@@ -974,14 +1039,14 @@ function Questionnaire({
       <div className="confirmation-box">
         {confirming ? (
           <>
-            <p>确认提交全部回答？提交成功后无法修改或重复提交。</p>
+            <p>确认提交全部回答？</p>
             <div className="button-row">
               <Button
                 variant="outline"
                 disabled={busy}
                 onClick={() => setConfirming(false)}
               >
-                返回检查
+                返回
               </Button>
               <Button
                 className="primary-action"

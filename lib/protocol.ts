@@ -1,13 +1,16 @@
-export const VERSION = 'survival-voice-v1.2-12items';
+export const VERSION = 'survival-voice-v1.3-warmup';
 export const PERMUTATION_ID = 'rank12-irregular-2026-09-07';
 export const SCORING_VERSION = 'footrule-gap-closure-v1';
 export const MINIMUM_AGE = 12;
+export const MAXIMUM_AGE = 65;
+export const WARMUP_DURATION_MS = 13632;
 export function isEligibleAge(value: unknown): value is number {
   // Safe-integer validation is a numeric representation check, not a study age ceiling.
   return (
     typeof value === 'number' &&
     Number.isSafeInteger(value) &&
-    value >= MINIMUM_AGE
+    value >= MINIMUM_AGE &&
+    value <= MAXIMUM_AGE
   );
 }
 export const ITEMS = [
@@ -34,35 +37,35 @@ export const DISCUSSION_ORDER = [...ITEM_IDS];
 export const QUESTIONS = [
   {
     id: 'SP1',
-    text: '与这位 AI 语音助手交流时，我感到这是一种有人情味的交流。',
+    text: '在刚才与 AI 语音助手交流时，我感觉这次互动具有一定的个人化特点。',
     construct: 'personalness',
   },
   {
     id: 'SP2',
-    text: '与这位 AI 语音助手交流时，我感受到人与人接触的感觉。',
+    text: '在刚才与 AI 语音助手交流时，我感受到了一种人与人交流般的联系感。',
     construct: 'human contact',
   },
   {
     id: 'SP3',
-    text: '与这位 AI 语音助手交流时，我感觉自己像是在与一个真人交流。',
+    text: '在刚才与 AI 语音助手交流时，我感觉自己像是在与一个真实的人交流。',
     construct: 'real person',
   },
   {
     id: 'SP4',
-    text: '与这位 AI 语音助手交流时，我感受到社交互动的氛围。',
+    text: '在刚才与 AI 语音助手交流时，我感受到了一种社交互动的感觉。',
     construct: 'sociability',
   },
   {
     id: 'SP5',
-    text: '与这位 AI 语音助手交流时，我感到它具有人的敏感与体察能力。',
-    construct: 'human sensitivity',
+    text: '在刚才与 AI 语音助手交流时，我感觉它的表达方式具有一定的人性化特点。',
+    construct: 'humanized expression (researcher adaptation)',
   },
 ] as const;
 export const LIKERT_LABELS = [
   '非常不同意',
   '不同意',
   '比较不同意',
-  '既不同意也不反对',
+  '一般',
   '比较同意',
   '同意',
   '非常同意',
@@ -102,6 +105,7 @@ export type State = {
   final: string[];
   reasons: { item: string; text: string; responseMs: number }[];
   exposures: Exposure[];
+  warmup: Exposure | null;
   audioCount: number;
   audioAttempts: number;
   audioPassed: boolean;
@@ -121,6 +125,7 @@ export function freshState(now = new Date().toISOString()): State {
     final: [],
     reasons: [],
     exposures: [],
+    warmup: null,
     audioCount: 0,
     audioAttempts: 0,
     audioPassed: false,
@@ -185,6 +190,7 @@ export function placeItem(
   slots: (string | null)[],
   item: string,
   target: number,
+  swap = false,
 ): (string | null)[] {
   if (!ITEM_IDS.includes(item) || target < 0 || target >= slots.length)
     return slots;
@@ -192,7 +198,7 @@ export function placeItem(
     from = next.indexOf(item),
     displaced = next[target];
   if (from === target) return slots;
-  if (from >= 0 && next.every(Boolean)) {
+  if (from >= 0 && next.every(Boolean) && !swap) {
     next.splice(from, 1);
     next.splice(target, 0, item);
   } else {
@@ -205,6 +211,8 @@ export type View = {
   id: string;
   mode: Mode;
   protocolMismatch: boolean;
+  warmupPending: boolean;
+  condition: Condition | null;
   revision: number;
   phase: Phase;
   initial: string[];

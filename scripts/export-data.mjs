@@ -36,6 +36,8 @@ for (const row of usable) {
     ranking.every((id) => state.initial.includes(id));
   if (
     !m?.eligible ||
+    (row.version === 'survival-voice-v1.3-warmup' &&
+      (!state.warmup || state.warmup.skipped)) ||
     ![12, 15].includes(count) ||
     !sameItems(state.initial) ||
     !sameItems(state.final) ||
@@ -79,6 +81,10 @@ for (const row of usable) {
     social_presence_5: m.socialPresence5,
     social_presence_4: m.socialPresence4,
     changed_items: m.changedItems,
+    warmup_duration_ms: state.warmup?.durationMs ?? null,
+    warmup_listened_ms: state.warmup?.listenedMs ?? null,
+    warmup_attempts: state.warmup?.attempts ?? null,
+    warmup_interruptions: state.warmup?.interruptions ?? null,
   });
   for (const [phase, order] of [
     ['initial', state.initial],

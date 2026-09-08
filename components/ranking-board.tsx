@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, GripVertical, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,6 +54,48 @@ export function RankingBoard({
   const [selected, setSelected] = useState<string | null>(null),
     [announcement, setAnnouncement] = useState(''),
     [confirming, setConfirming] = useState(false);
+  const board = useRef<HTMLDivElement>(null);
+  const oldPositions = useRef(new Map<string, DOMRect>());
+  const [ghost, setGhost] = useState<{
+    item: string;
+    x: number;
+    y: number;
+    width: number;
+  } | null>(null);
+  const capturePositions = () => {
+    oldPositions.current.clear();
+    board.current
+      ?.querySelectorAll<HTMLElement>('[data-item-id]')
+      .forEach((el) => {
+        oldPositions.current.set(
+          el.dataset.itemId!,
+          el.getBoundingClientRect(),
+        );
+        el.getAnimations().forEach((a) => a.cancel());
+      });
+  };
+  useLayoutEffect(() => {
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      board.current
+        ?.querySelectorAll<HTMLElement>('[data-item-id]')
+        .forEach((el) => {
+          const before = oldPositions.current.get(el.dataset.itemId!);
+          if (!before) return;
+          const after = el.getBoundingClientRect(),
+            dx = before.left - after.left,
+            dy = before.top - after.top;
+          if (dx || dy)
+            el.animate(
+              [
+                { transform: `translate(${dx}px,${dy}px)` },
+                { transform: 'translate(0,0)' },
+              ],
+              { duration: 240, easing: 'ease-out' },
+            );
+        });
+    }
+    oldPositions.current.clear();
+  }, [slots]);
   const started = useRef(0),
     touch = useRef<{ item: string; target: number } | null>(null);
   useEffect(() => {
@@ -69,8 +112,9 @@ export function RankingBoard({
   const move = (id: string, to: number, method: string) => {
     if (busy || confirming) return;
     const from = slots.indexOf(id),
-      next = placeItem(slots, id, to);
+      next = placeItem(slots, id, to, method === 'tap');
     if (next === slots) return;
+    capturePositions();
     setSlots(next);
     setSelected(null);
     setMoves((previous) => [
@@ -90,6 +134,7 @@ export function RankingBoard({
   const remove = (id: string) => {
     if (busy || confirming) return;
     const from = slots.indexOf(id);
+    capturePositions();
     setSlots(slots.map((x) => (x === id ? null : x)));
     setMoves((previous) => [
       ...previous.slice(-498),
@@ -104,10 +149,38 @@ export function RankingBoard({
   };
   const filled = slots.filter(Boolean).length;
   return (
-    <div className="ranking-board">
+    <div className="ranking-board" ref={board}>
       <p className="ranking-hint">
-        拖动物品到排名框；也可先点选物品，再点选位置。用上／下按钮可微调顺序。
+        拖动物品到排名框；也可以点击两个物品交换位置。空位可点选放入。用上／下按钮可微调顺序。
       </p>
+      {final && (
+        <Button
+          variant="outline"
+          disabled={busy || confirming}
+          onClick={() => {
+            capturePositions();
+            const events = slots.flatMap((id, from) =>
+              id && initial.indexOf(id) !== from
+                ? [
+                    {
+                      item: id,
+                      from,
+                      to: initial.indexOf(id),
+                      atMs: Math.round(performance.now() - started.current),
+                      method: 'reset',
+                    },
+                  ]
+                : [],
+            );
+            setSlots([...initial]);
+            setSelected(null);
+            setMoves((prev) => [...prev, ...events].slice(-500));
+            setAnnouncement('已重置为您之前确认的排序。');
+          }}
+        >
+          重置
+        </Button>
+      )}
       <output className="sr-only">{announcement}</output>
       <div
         className={`ranking-layout ${filled === ITEMS.length ? 'all-placed' : ''}`}
@@ -122,6 +195,7 @@ export function RankingBoard({
               {ITEMS.filter((x) => !slots.includes(x.id)).map((item) => (
                 <Button
                   key={item.id}
+                  data-item-id={item.id}
                   variant="outline"
                   className={`item-choice item-enter ${selected === item.id ? 'selected' : ''}`}
                   draggable
@@ -129,7 +203,11 @@ export function RankingBoard({
                   onDragStart={(e) =>
                     e.dataTransfer.setData('text/plain', item.id)
                   }
-                  onClick={() => setSelected(item.id)}
+                  onClick={() => {
+                    if (selected && slots.includes(selected))
+                      move(item.id, slots.indexOf(selected), 'tap');
+                    else setSelected(item.id);
+                  }}
                   aria-pressed={selected === item.id}
                 >
                   <span>
@@ -163,8 +241,25 @@ export function RankingBoard({
                 // Drag target supplements the keyboard/tap buttons inside this list item.
                 // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
                 <li
-                  key={index}
-                  className={`rank-slot ${id ? 'filled' : ''} ${selected ? 'accepting' : ''}`}
+                  key={id ?? `empty-${index}`}
+                  data-item-id={id ?? undefined}
+                  draggable={!!id && !busy && !confirming}
+                  onDragStart={(e) => {
+                    if (!id || busy || confirming) {
+                      e.preventDefault();
+                      return;
+                    }
+                    const element = e.currentTarget,
+                      box = element.getBoundingClientRect();
+                    e.dataTransfer.setData('text/plain', id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setDragImage(
+                      element,
+                      Math.max(0, e.clientX - box.left),
+                      Math.max(0, e.clientY - box.top),
+                    );
+                  }}
+                  className={`rank-slot ${id ? 'filled' : ''} ${selected ? 'accepting' : ''} ${selected === id ? 'selected' : ''}`}
                   data-rank-target={index}
                   onDragOver={(e) => {
                     if (!busy && !confirming) e.preventDefault();
@@ -182,7 +277,8 @@ export function RankingBoard({
                     className="slot-main"
                     disabled={busy || confirming}
                     onClick={() => {
-                      if (selected) move(selected, index, 'tap');
+                      if (selected === id) setSelected(null);
+                      else if (selected) move(selected, index, 'tap');
                       else if (id) setSelected(id);
                     }}
                     aria-label={`第 ${index + 1} 位，${item?.label ?? '空位'}${selected ? '，放入所选物品' : ''}`}
@@ -243,11 +339,23 @@ export function RankingBoard({
                             !confirming
                           ) {
                             touch.current = { item: id, target: index };
+                            const box = e.currentTarget
+                              .closest('.rank-slot')!
+                              .getBoundingClientRect();
+                            setGhost({
+                              item: id,
+                              x: e.clientX,
+                              y: e.clientY,
+                              width: box.width,
+                            });
                             e.currentTarget.setPointerCapture(e.pointerId);
                           }
                         }}
                         onPointerMove={(e) => {
                           if (!touch.current) return;
+                          setGhost((old) =>
+                            old ? { ...old, x: e.clientX, y: e.clientY } : null,
+                          );
                           const element = document
                             .elementFromPoint(e.clientX, e.clientY)
                             ?.closest('[data-rank-target]');
@@ -273,9 +381,11 @@ export function RankingBoard({
                               'drag',
                             );
                           touch.current = null;
+                          setGhost(null);
                         }}
                         onPointerCancel={() => {
                           touch.current = null;
+                          setGhost(null);
                         }}
                       >
                         <GripVertical />
@@ -289,18 +399,30 @@ export function RankingBoard({
           <p className="least-label">{ITEMS.length} = 最不重要</p>
         </div>
       </div>
+      {ghost &&
+        createPortal(
+          <div
+            className="rank-drag-preview"
+            style={{ left: ghost.x, top: ghost.y, width: ghost.width }}
+            aria-hidden="true"
+          >
+            <strong>{ITEMS.find((x) => x.id === ghost.item)?.label}</strong>
+            <small>{ITEMS.find((x) => x.id === ghost.item)?.detail}</small>
+          </div>,
+          document.body,
+        )}
       {isRanking(slots) && (
         <div className="confirmation-box item-enter">
           {confirming ? (
             <>
-              <p>确认此排序后，将进入下一阶段，不能返回修改。</p>
+              <p>确认此排序后，将进入下一阶段。</p>
               <div className="button-row">
                 <Button
                   variant="outline"
                   disabled={busy}
                   onClick={() => setConfirming(false)}
                 >
-                  再检查一下
+                  返回
                 </Button>
                 <Button
                   className="primary-action"
@@ -317,14 +439,14 @@ export function RankingBoard({
               <p>
                 {final
                   ? '您可以保留原排序，也可以按自己的判断调整。'
-                  : '全部物品已放入，请检查您的排序。'}
+                  : '全部物品已放入，请确认您的排序。'}
               </p>
               <Button
                 className="primary-action"
                 disabled={busy}
                 onClick={() => setConfirming(true)}
               >
-                {final ? '确认最终排序' : '确认初始排序'}
+                {final ? '确认排序' : '确认'}
               </Button>
             </div>
           )}

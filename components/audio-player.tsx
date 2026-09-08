@@ -2,7 +2,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Play, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import type { View } from '@/lib/protocol';
 type Send = (
   action: string,
@@ -25,11 +24,7 @@ export function AudioPlayer({
   const [status, setStatus] = useState<'idle' | 'playing' | 'done' | 'error'>(
       'idle',
     ),
-    [message, setMessage] = useState(
-      '请完整听完助手的理由，再继续讨论下一项。',
-    ),
-    [fraction, setFraction] = useState(0),
-    [heard, setHeard] = useState(false);
+    [message, setMessage] = useState('请完整收听语音，播放结束后点击继续。');
   const account = () => {
     const now = performance.now();
     if (playing.current && last.current) elapsed.current += now - last.current;
@@ -41,8 +36,6 @@ export function AudioPlayer({
     media.current?.pause();
     elapsed.current = 0;
     interruptions.current += 1;
-    setFraction(0);
-    setHeard(false);
     setStatus('error');
     setMessage(text);
   };
@@ -63,14 +56,14 @@ export function AudioPlayer({
     const a = media.current;
     if (!a || document.hidden) return;
     setMessage('正在准备语音…');
-    const result = await send('play_start');
+    const result = await send(
+      session.warmupPending ? 'warmup_start' : 'play_start',
+    );
     if (!result) return;
     a.currentTime = 0;
     a.playbackRate = 1;
     elapsed.current = 0;
     last.current = performance.now();
-    setHeard(false);
-    setFraction(0);
     try {
       await a.play();
       setStatus('playing');
@@ -90,20 +83,14 @@ export function AudioPlayer({
   }, [session.audioSrc]);
   return (
     <div className="audio-panel">
-      <div
-        className={`voice-bars ${status === 'playing' ? 'active' : ''}`}
-        aria-hidden="true"
-      >
-        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-          <span key={i} style={{ animationDelay: `${i * 80}ms` }} />
-        ))}
-      </div>
       <h3>
-        {session.mode === 'preview'
-          ? 'AI 语音助手 · 流畅语音试听'
-          : 'AI 语音助手'}
+        {session.warmupPending
+          ? '交流前，请先收听一段语音'
+          : session.mode === 'preview'
+            ? 'AI 语音助手 · 流畅语音试听'
+            : 'AI 语音助手'}
       </h3>
-      {session.mode === 'preview' && (
+      {session.mode === 'preview' && !session.warmupPending && (
         <p>
           预览仅播放已上传的流畅语音，不代表正式随机分组。停顿版语音待加入。
         </p>
@@ -121,9 +108,7 @@ export function AudioPlayer({
           setStatus('playing');
         }}
         onTimeUpdate={() => {
-          const a = media.current!;
           account();
-          setFraction(a.duration ? Math.min(1, a.currentTime / a.duration) : 0);
         }}
         onWaiting={() => {
           account();
@@ -159,22 +144,16 @@ export function AudioPlayer({
             a.muted ||
             a.volume === 0 ||
             !Number.isFinite(a.duration) ||
-            elapsed.current < a.duration * 1000 - 150
+            elapsed.current < a.duration * 1000 - 100
           ) {
             interrupt('播放不完整，请重新收听。');
             return;
           }
           setStatus('done');
-          setFraction(1);
           setMessage('语音已播放完毕。');
         }}
       />
-      <progress
-        className="audio-progress"
-        value={fraction}
-        max={1}
-        aria-label="语音播放进度"
-      />
+
       {status !== 'playing' && status !== 'done' && (
         <Button variant="outline" disabled={busy} onClick={() => void play()}>
           {status === 'error' ? <RotateCcw /> : <Play />}从头播放
@@ -182,25 +161,20 @@ export function AudioPlayer({
       )}
       {status === 'done' && (
         <>
-          <label className="heard-option" htmlFor="heard-clip">
-            <Checkbox
-              id="heard-clip"
-              checked={heard}
-              onCheckedChange={(v) => setHeard(v === true)}
-            />
-            我已清楚听到完整语音
-          </label>
           <Button
             className="primary-action"
-            disabled={busy || !heard}
+            disabled={busy}
             onClick={() =>
-              void send('exposure', {
-                item: session.currentItem,
-                skipped: false,
-                interruptions: interruptions.current,
-                durationMs: Math.round(media.current!.duration * 1000),
-                listenedMs: Math.round(elapsed.current),
-              })
+              void send(
+                session.warmupPending ? 'warmup_complete' : 'exposure',
+                {
+                  item: session.currentItem,
+                  skipped: false,
+                  interruptions: interruptions.current,
+                  durationMs: Math.round(media.current!.duration * 1000),
+                  listenedMs: Math.round(elapsed.current),
+                },
+              )
             }
           >
             继续
@@ -215,7 +189,7 @@ export function AudioPlayer({
             // A skipped test clip is recorded explicitly and never enters study exports.
             playing.current = false;
             media.current?.pause();
-            void send('exposure', {
+            void send(session.warmupPending ? 'warmup_complete' : 'exposure', {
               item: session.currentItem,
               skipped: true,
               interruptions: interruptions.current,

@@ -1,10 +1,13 @@
 # Including participants aged 12 and above
 
-Updated 2026-09-06. Minimum age: **12**. No study upper age limit. This means adults remain eligible; a teenage focus is not equivalent to an exclusively teenage sample. The numeric validator requires whole, representable ages, not a capped adult age range.
+
+Current revision (2026-09-08): eligibility is 12–65 inclusive. The new common warm-up, revised wording, read-only informational returns, swap interactions and preview reset are documented in `REVISION_2026-09-08.md`. This note supersedes earlier descriptions below of an unlimited upper age, heard-audio checkbox or absent warm-up; real collection remains disabled.
+
+Updated 2026-09-06. Minimum age: **12**; maximum age: **65**. This means adults remain eligible; a teenage focus is not equivalent to an exclusively teenage sample. The numeric validator requires whole, representable ages within the inclusive study range.
 
 ## Current implementation
 
-- Shared age validation is used by the age field and the session-creation endpoint. Under-12, fractional, nonnumeric and invalid numeric values are rejected.
+- Shared age validation is used by the age field and the session-creation endpoint. Under-12, over-65, fractional, nonnumeric and invalid numeric values are rejected.
 - The previous statement that participants must be 18 or older is removed.
 - The researcher preview requests fictional details and warns against submitting minors' real information. Preview answers still reach the database: exclusion from analysis does not exempt real information from privacy requirements.
 - Real collection remains disabled. `minorParticipationReady` is an additional false-by-default launch gate, not evidence that any individual guardian gave permission.

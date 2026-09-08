@@ -105,7 +105,7 @@ export function studyConfigured() {
 export async function checkAssets(request: Request) {
   // Check the exact deployed asset set before accepting a real participant.
   const missing: string[] = [];
-  for (const clip of REQUIRED_AUDIO) {
+  for (const clip of [{ path: '/audio/warmup.mp3' }, ...REQUIRED_AUDIO]) {
     const result = await fetch(new URL(clip.path, request.url), {
       method: 'HEAD',
     });

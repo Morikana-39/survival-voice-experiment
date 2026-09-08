@@ -2,6 +2,7 @@ import {
   DISCUSSION_ORDER,
   isRanking,
   freshState,
+  WARMUP_DURATION_MS,
   type State,
   type Mode,
   type RankingEvent,
@@ -39,7 +40,7 @@ function events(value: unknown): RankingEvent[] {
         e.to >= -1 &&
         e.to < DISCUSSION_ORDER.length &&
         numberIn(e.atMs, 0, 86400000) &&
-        ['drag', 'tap', 'up', 'down', 'remove'].includes(e.method),
+        ['drag', 'tap', 'up', 'down', 'remove', 'reset'].includes(e.method),
       '排序操作记录格式错误。',
     );
   return value as RankingEvent[];
@@ -109,6 +110,7 @@ export function applyAction(
       break;
     case 'reason': {
       phase('discussion');
+      requireThat(s.warmup, '请先完整收听交流前的语音。');
       const i = s.exposures.length;
       requireThat(
         i < DISCUSSION_ORDER.length &&
@@ -133,12 +135,57 @@ export function applyAction(
     }
     case 'play_start':
       phase('discussion');
+      requireThat(s.warmup);
       requireThat(s.reasons.length === s.exposures.length + 1);
       s.playbackStartedAt = new Date(now).toISOString();
       s.playbackAttempts += 1;
       break;
+    case 'warmup_start':
+      phase('discussion');
+      requireThat(
+        !s.warmup && s.exposures.length === 0 && s.reasons.length === 0,
+      );
+      s.playbackStartedAt = new Date(now).toISOString();
+      s.playbackAttempts += 1;
+      break;
+    case 'warmup_complete': {
+      phase('discussion');
+      requireThat(
+        !s.warmup && s.exposures.length === 0 && s.reasons.length === 0,
+      );
+      const skipped = b.skipped === true;
+      requireThat(!skipped || mode === 'preview');
+      if (!skipped)
+        requireThat(
+          s.playbackStartedAt &&
+            numberIn(
+              b.durationMs,
+              WARMUP_DURATION_MS - 150,
+              WARMUP_DURATION_MS + 150,
+            ) &&
+            numberIn(b.listenedMs, WARMUP_DURATION_MS - 100, 600000) &&
+            now - Date.parse(s.playbackStartedAt!) >= WARMUP_DURATION_MS - 100,
+          '请完整收听语音后继续。',
+        );
+      requireThat(
+        Number.isInteger(b.interruptions) && numberIn(b.interruptions, 0, 1000),
+      );
+      s.warmup = {
+        item: 'warmup',
+        skipped,
+        attempts: s.playbackAttempts,
+        interruptions: Number(b.interruptions),
+        durationMs: skipped ? 0 : Number(b.durationMs),
+        listenedMs: skipped ? 0 : Number(b.listenedMs),
+        finishedAt: new Date(now).toISOString(),
+      };
+      delete s.playbackStartedAt;
+      s.playbackAttempts = 0;
+      break;
+    }
     case 'exposure': {
       phase('discussion');
+      requireThat(s.warmup);
       const i = s.exposures.length;
       requireThat(b.item === DISCUSSION_ORDER[i] && s.reasons.length === i + 1);
       const skipped = b.skipped === true;
@@ -186,6 +233,8 @@ export function applyAction(
         isRanking(s.initial) &&
           isRanking(s.final) &&
           s.audioPassed &&
+          s.warmup &&
+          (mode === 'preview' || !s.warmup.skipped) &&
           s.exposures.length === DISCUSSION_ORDER.length,
       );
       requireThat(

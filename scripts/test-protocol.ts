@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   ITEM_IDS,
   MINIMUM_AGE,
+  MAXIMUM_AGE,
+  WARMUP_DURATION_MS,
   isEligibleAge,
   DISCUSSION_ORDER,
   isRanking,
@@ -15,6 +17,7 @@ import {
   AI_POSITION_BY_INITIAL_RANK,
   MAX_RANK_DISTANCE,
 } from '../lib/protocol';
+import { reviewPages } from '../lib/navigation';
 import { applyAction } from '../lib/actions';
 import { STUDY, collectionReady } from '../lib/study-config';
 import { view } from '../lib/session-view';
@@ -22,12 +25,16 @@ import type { SessionRow } from '../lib/server-study';
 import { REQUIRED_AUDIO } from '../lib/audio-manifest';
 import { readdirSync, statSync } from 'node:fs';
 
-await test('age eligibility accepts 12 and rejects younger or invalid ages', () => {
+await test('age eligibility is inclusive 12–65', () => {
   assert.equal(MINIMUM_AGE, 12);
-  for (const age of [12, 13, 17, 18, 100, 101, 120])
+  assert.equal(MAXIMUM_AGE, 65);
+  for (const age of [12, 13, 17, 18, 64, 65])
     assert.equal(isEligibleAge(age), true);
   for (const age of [
     11,
+    66,
+    100,
+    65.1,
     12.5,
     '12',
     null,
@@ -149,6 +156,15 @@ await test('view reveals ranks only after discussion, uses assigned study audio 
   const state = freshState();
   state.phase = 'discussion';
   state.initial = ITEM_IDS;
+  state.warmup = {
+    item: 'warmup',
+    skipped: false,
+    attempts: 1,
+    interruptions: 0,
+    durationMs: 13632,
+    listenedMs: 13632,
+    finishedAt: new Date().toISOString(),
+  };
   state.reasons = [{ item: ITEM_IDS[0], text: '理由', responseMs: 1000 }];
   const row = {
     id: 'test',
@@ -230,6 +246,7 @@ await test('full preview flow has fixed discussion order, complete questionnaire
     ),
   );
   step({ action: 'initial', ranking: ITEM_IDS, events: [] });
+  step({ action: 'warmup_complete', skipped: true, interruptions: 0 });
   for (const item of DISCUSSION_ORDER) {
     assert.throws(() =>
       applyAction(
@@ -281,6 +298,15 @@ await test('real audio cannot finish before start or before enough elapsed liste
   const s = freshState();
   s.phase = 'discussion';
   s.initial = ITEM_IDS;
+  s.warmup = {
+    item: 'warmup',
+    skipped: false,
+    attempts: 1,
+    interruptions: 0,
+    durationMs: 13632,
+    listenedMs: 13632,
+    finishedAt: new Date().toISOString(),
+  };
   s.reasons = [{ item: ITEM_IDS[0], text: '理由', responseMs: 2000 }];
   const e = {
     action: 'exposure',
@@ -308,5 +334,109 @@ await test('withdrawal clears answers and prevents re-entry into the same state'
   assert.equal(w.phase, 'withdrawn');
   assert.throws(() =>
     applyAction(w, 'study', { action: 'instructions' }, Date.now()),
+  );
+});
+await test('tap swaps two items without shifting intervening items', () => {
+  for (let i = 0; i < 12; i++)
+    for (let j = 0; j < 12; j++) {
+      const swapped = placeItem(ITEM_IDS, ITEM_IDS[i], j, true);
+      assert.equal(swapped[j], ITEM_IDS[i]);
+      assert.equal(swapped[i], ITEM_IDS[j]);
+      ITEM_IDS.forEach((id, k) => {
+        if (k !== i && k !== j) assert.equal(swapped[k], id);
+      });
+      assert.ok(isRanking(swapped));
+    }
+});
+await test('informational returns cannot reopen tasks or leave discussion', () => {
+  for (const phase of ['consent', 'discussion', 'complete', 'withdrawn'])
+    assert.deepEqual(reviewPages(phase), []);
+  for (const phase of [
+    'instructions',
+    'audio',
+    'scenario',
+    'initial',
+    'revise',
+    'questionnaire',
+  ]) {
+    assert.ok(reviewPages(phase).length);
+    assert.ok(
+      reviewPages(phase).every((p) =>
+        ['consent', 'instructions', 'scenario'].includes(p),
+      ),
+    );
+  }
+});
+await test('warmup must finish once before reasons and survives reload without revealing condition', () => {
+  const now = Date.now(),
+    s = freshState();
+  s.phase = 'discussion';
+  s.initial = ITEM_IDS;
+  const reason = {
+    action: 'reason',
+    item: ITEM_IDS[0],
+    reason: '理由',
+    responseMs: 1000,
+  };
+  assert.throws(() => applyAction(s, 'study', reason, now));
+  assert.throws(() =>
+    applyAction(
+      s,
+      'study',
+      { action: 'warmup_complete', skipped: true, interruptions: 0 },
+      now,
+    ),
+  );
+  const start = applyAction(s, 'study', { action: 'warmup_start' }, now);
+  const finish = {
+    action: 'warmup_complete',
+    skipped: false,
+    durationMs: WARMUP_DURATION_MS,
+    listenedMs: WARMUP_DURATION_MS,
+    interruptions: 0,
+  };
+  assert.throws(() => applyAction(start, 'study', finish, now + 100));
+  assert.throws(() =>
+    applyAction(
+      start,
+      'study',
+      { ...finish, durationMs: 200, listenedMs: 200 },
+      now + 20000,
+    ),
+  );
+  const ready = applyAction(start, 'study', finish, now + 14000);
+  assert.equal(ready.warmup?.attempts, 1);
+  assert.equal(ready.exposures.length, 0);
+  assert.throws(() =>
+    applyAction(ready, 'study', { action: 'warmup_start' }, now + 15000),
+  );
+  assert.equal(
+    applyAction(ready, 'study', reason, now + 15000).reasons.length,
+    1,
+  );
+  const row = {
+    id: 'test',
+    mode: 'study',
+    condition: 'disfluent',
+    version: VERSION,
+    revision: 0,
+    state: JSON.stringify(s),
+    completion_code: null,
+  } as SessionRow;
+  assert.equal(view(row).warmupPending, true);
+  assert.equal(view(row).audioSrc, '/audio/warmup.mp3');
+  assert.equal(view(row).condition, null);
+  assert.equal(
+    view({ ...row, state: JSON.stringify(ready) }).warmupPending,
+    false,
+  );
+  const complete = { ...ready, phase: 'complete', final: ITEM_IDS };
+  assert.equal(
+    view({ ...row, state: JSON.stringify(complete) }).condition,
+    'disfluent',
+  );
+  assert.equal(
+    applyAction(ready, 'study', { action: 'withdraw' }, now).warmup,
+    null,
   );
 });

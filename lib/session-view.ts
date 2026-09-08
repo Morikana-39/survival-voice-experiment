@@ -13,13 +13,17 @@ export function view(row: SessionRow): View {
   const s: State = JSON.parse(row.state);
   const mismatch = row.version !== VERSION;
   const index = mismatch ? 0 : s.exposures.length;
-  const currentItem = mismatch ? null : (DISCUSSION_ORDER[index] ?? null);
+  const warmupPending = !mismatch && s.phase === 'discussion' && !s.warmup;
+  const currentItem =
+    mismatch || warmupPending ? null : (DISCUSSION_ORDER[index] ?? null);
   const reveal =
     !mismatch && ['revise', 'questionnaire', 'complete'].includes(s.phase);
   return {
     id: row.id,
     mode: row.mode,
     protocolMismatch: mismatch && s.phase !== 'withdrawn',
+    warmupPending,
+    condition: !mismatch && s.phase === 'complete' ? row.condition : null,
     revision: row.revision,
     phase: s.phase,
     initial: mismatch ? [] : s.initial,
@@ -29,8 +33,9 @@ export function view(row: SessionRow): View {
     currentItem,
     reason: mismatch ? null : (s.reasons[index]?.text ?? null),
     // Preview deliberately auditions fluent clips only, clearly labelled in the UI.
-    audioSrc:
-      !mismatch && s.reasons[index] && currentItem
+    audioSrc: warmupPending
+      ? '/audio/warmup.mp3'
+      : !mismatch && s.reasons[index] && currentItem
         ? audioPath(
             row.mode === 'preview' ? 'fluent' : row.condition,
             currentItem,

@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '荒漠生存决策研究',
-  description: '参与一次关于 AI 语音助手和决策体验的在线研究。',
+  title: '荒漠生存情境研究',
+  description: '参与一次关于 AI 语音助手交流体验的在线研究。',
   robots: { index: false, follow: false },
 };
 

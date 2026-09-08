@@ -68,7 +68,7 @@ async function action(action, fields = {}, expected = 200) {
   );
 }
 const start = { consent: true, age: 12, gender: 'undisclosed', preview: true };
-for (const age of [11, 12.5, '12', Number.MAX_SAFE_INTEGER + 1, null])
+for (const age of [11, 66, 65.5, 12.5, '12', Number.MAX_SAFE_INTEGER + 1, null])
   await request('/api/session', { ...start, age }, 400);
 await request('/api/session', { ...start, consent: false }, 400);
 await request('/api/session', start, 403, 'https://unrelated.invalid');
@@ -79,7 +79,7 @@ await request('/api/session', start);
 assert.equal(view.id, firstId, 'duplicate start must restore same session');
 assert.equal(view.ai, null);
 assert.equal(view.phase, 'instructions');
-assert.ok(!('condition' in view));
+assert.equal(view.condition, null);
 await action('submit', { answers: [4, 4, 4, 4, 4], responseMs: 2000 }, 400);
 await action('instructions');
 const toneAction = {
@@ -99,6 +99,20 @@ await new Promise((r) => setTimeout(r, Number(tones.beeps) * 600 + 200));
 await action('tone_answer', { count: tones.beeps });
 await action('scenario');
 await action('initial', { ranking: ids, events: [] });
+assert.equal(view.warmupPending, true);
+assert.equal(view.audioSrc, '/audio/warmup.mp3');
+assert.equal(
+  (await fetch(base + view.audioSrc, { method: 'HEAD' })).status,
+  200,
+);
+await action(
+  'reason',
+  { item: ids[0], reason: '提前理由', responseMs: 1000 },
+  400,
+);
+await action('warmup_complete', { skipped: true, interruptions: 0 });
+await request('/api/study');
+assert.equal(view.warmupPending, false);
 for (const item of ids) {
   assert.equal(
     view.ai,
@@ -142,11 +156,12 @@ assert.equal(view.completionCode, code);
 await action('submit', { answers: [1, 1, 1, 1, 1], responseMs: 2000 }, 409);
 await request('/api/study');
 assert.equal(view.phase, 'complete');
+assert.equal(view.condition, 'fluent');
 await request('/api/session', { ...start, restart: true }, 201);
 await action('withdraw');
 assert.equal(view.phase, 'withdrawn');
 await action('instructions', {}, 409);
-for (const age of [17, 18, 101]) {
+for (const age of [17, 18, 65]) {
   await request('/api/session', { ...start, age, restart: true }, 201);
   await action('withdraw');
 }
