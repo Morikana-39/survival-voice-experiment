@@ -362,8 +362,7 @@ export default function Home() {
                     onCheckedChange={(v) => setEligibilityConfirmed(v === true)}
                   />
                   <span>
-                    {preview ? '本次测试使用的虚构年龄在' : '我的年龄在'}{' '}
-                    {MINIMUM_AGE}–{MAXIMUM_AGE} 周岁之间，已阅读并理解以上说明。
+                    参与者需要在{MINIMUM_AGE}-{MAXIMUM_AGE}岁之间，已阅读并理解以上说明。
                   </span>
                 </label>
                 <label className="consent-option" htmlFor="study-consent">
@@ -650,24 +649,40 @@ export default function Home() {
           if (!open) setReview(null);
         }}
       >
-        <DialogContent className="information-review" showCloseButton={false}>
+        <DialogContent
+          className="information-review relative"
+          showCloseButton={false}
+        >
           <DialogTitle>
             {review ? INFORMATION_TITLES[review] : '回顾说明'}
           </DialogTitle>
+          <Button
+            className="absolute right-3 top-3 h-8 w-8 p-0"
+            onClick={() => setReview(null)}
+            aria-label="关闭说明"
+          >
+            ×
+          </Button>
           {review === 'consent' && <ConsentInformation config={config} />}
           {review === 'instructions' && <InstructionInformation />}
           {review === 'scenario' && <ScenarioInformation />}
           <div className="button-row">
-            {review && history.indexOf(review) < history.length - 1 && (
+            {review && history.indexOf(review) > 0 && (
               <Button
                 variant="outline"
-                onClick={() => setReview(history[history.indexOf(review) + 1])}
+                onClick={() =>
+                  setReview(history[history.indexOf(review) - 1])
+                }
               >
                 上一页
               </Button>
             )}
-            <Button onClick={() => setReview(null)} aria-label="关闭说明">×</Button>
-            {review && history.indexOf(review) < history.length - 1 && <Button onClick={() => setReview(history[history.indexOf(review) + 1])}>下一页</Button>}
+            {review &&
+              history.indexOf(review) < history.length - 1 && (
+                <Button onClick={() => setReview(history[history.indexOf(review) + 1])}>
+                  下一页
+                </Button>
+              )}
             <Button
               variant="ghost"
               onClick={() => {
@@ -897,8 +912,33 @@ function Discussion({
       return '';
     }
   });
-  const [selected, setSelected] = useState<string[]>([]), [other, setOther] = useState('');
-  const reasonOptions = ['可以直接满足团队当前需求','能够提供生存所需的资源或帮助','能够解决当前情境中的具体问题','有助于寻找方向或了解周围环境','有助于获得救援或引起他人注意','用途较多，可以用于不同情况','可以与其他物品配合使用','我认为该物品在当前情况下较为重要','受到当前环境条件限制','需要其他条件才能发挥作用','相比其他物品，作用较有限','我认为其他物品比它更值得优先考虑','其他原因'];
+  const [selected, setSelected] = useState<string[]>([]),
+    [other, setOther] = useState('');
+  const reasonOptions = [
+    {
+      title: '这件物品比较重要，因为：',
+      options: [
+        '可以直接满足团队当前需求',
+        '能够提供生存所需的资源或帮助',
+        '能够解决当前情境中的具体问题',
+        '有助于寻找方向或了解周围环境',
+        '有助于获得救援或引起他人注意',
+        '用途较多，可以用于不同情况',
+        '可以与其他物品配合使用',
+        '我认为该物品在当前情况下较为重要',
+      ],
+    },
+    {
+      title: '这件物品没那么重要，因为：',
+      options: [
+        '受到当前环境条件限制',
+        '需要其他条件才能发挥作用',
+        '相比其他物品，作用较有限',
+        '我认为其他物品比它更值得优先考虑',
+      ],
+    },
+  ];
+  const otherOption = '其他原因';
   const started = useRef(0);
   useEffect(() => {
     started.current = performance.now();
@@ -919,14 +959,73 @@ function Discussion({
       {!session.reason ? (
         <div className="reason-form">
           <label htmlFor="reason">您为什么把这件物品排在这个位置？</label>
-          <p>这件物品比较重要/没那么重要，因为（至少选择一项，最多五项）：</p>
-          <div className="reason-options">{reasonOptions.map((option) => <label key={option} className="choice-label"><Checkbox checked={selected.includes(option)} disabled={busy || (!selected.includes(option) && selected.length >= 5)} onCheckedChange={(v) => setSelected((s) => v === true ? [...s, option] : s.filter((x) => x !== option))} />{option}</label>)}</div>
-          {selected.includes('其他原因') && <Textarea id="reason" value={other} maxLength={500} onChange={(e) => setOther(e.target.value)} placeholder="请填写其他原因" disabled={busy} />}
+          <div className="reason-option-group-wrap">
+            {reasonOptions.map((group) => (
+              <fieldset key={group.title} className="reason-option-group">
+                <legend>{group.title}</legend>
+                <div className="reason-options">
+                  {group.options.map((option) => (
+                    <label key={option} className="choice-label">
+                      <Checkbox
+                        checked={selected.includes(option)}
+                        disabled={
+                          busy ||
+                          (!selected.includes(option) && selected.length >= 5)
+                        }
+                        onCheckedChange={(v) =>
+                          setSelected((s) =>
+                            v === true
+                              ? [...s, option]
+                              : s.filter((x) => x !== option),
+                          )
+                        }
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+            <fieldset className="reason-option-group">
+              <legend>其他原因：</legend>
+              <label className="choice-label">
+                <Checkbox
+                  checked={selected.includes(otherOption)}
+                  disabled={
+                    busy ||
+                    (!selected.includes(otherOption) && selected.length >= 5)
+                  }
+                  onCheckedChange={(v) =>
+                    setSelected((s) =>
+                      v === true
+                        ? [...s, otherOption]
+                        : s.filter((x) => x !== otherOption),
+                    )
+                  }
+                />
+                {otherOption}
+              </label>
+              {selected.includes(otherOption) && (
+                <Textarea
+                  id="reason"
+                  value={other}
+                  maxLength={500}
+                  onChange={(e) => setOther(e.target.value)}
+                  placeholder="请填写其他原因"
+                  disabled={busy}
+                />
+              )}
+            </fieldset>
+          </div>
           <div className="reason-footer">
             <small>{selected.length} / 5 项</small>
             <Button
               className="primary-action"
-              disabled={busy || selected.length < 1 || (selected.includes('其他原因') && other.trim().length < 1)}
+              disabled={
+                busy ||
+                selected.length < 1 ||
+                (selected.includes(otherOption) && other.trim().length < 1)
+              }
               onClick={() =>
                 void send('reason', {
                   item: item.id,
