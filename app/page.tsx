@@ -422,8 +422,6 @@ export default function Home() {
                   {[
                     ['woman', '女性'],
                     ['man', '男性'],
-                    ['other', '其他'],
-                    ['undisclosed', '不愿透露'],
                   ].map(([value, label]) => (
                     <label key={value} className="choice-label">
                       <RadioGroupItem value={value} />
@@ -665,10 +663,11 @@ export default function Home() {
                 variant="outline"
                 onClick={() => setReview(history[history.indexOf(review) + 1])}
               >
-                返回
+                上一页
               </Button>
             )}
-            <Button onClick={() => setReview(null)}>返回当前步骤</Button>
+            <Button onClick={() => setReview(null)} aria-label="关闭说明">×</Button>
+            {review && history.indexOf(review) < history.length - 1 && <Button onClick={() => setReview(history[history.indexOf(review) + 1])}>下一页</Button>}
             <Button
               variant="ghost"
               onClick={() => {
@@ -867,7 +866,7 @@ function SoundCheck({ send, busy }: { send: Send; busy: boolean }) {
           <Button
             className="primary-action"
             disabled={!answer || busy}
-            onClick={() => void send('tone_answer', { count: Number(answer) })}
+            onClick={() => { setPlayed(false); setAnswer(''); void send('tone_answer', { count: Number(answer) }); }}
           >
             确认并继续
             <ArrowRight />
@@ -898,6 +897,8 @@ function Discussion({
       return '';
     }
   });
+  const [selected, setSelected] = useState<string[]>([]), [other, setOther] = useState('');
+  const reasonOptions = ['可以直接满足团队当前需求','能够提供生存所需的资源或帮助','能够解决当前情境中的具体问题','有助于寻找方向或了解周围环境','有助于获得救援或引起他人注意','用途较多，可以用于不同情况','可以与其他物品配合使用','我认为该物品在当前情况下较为重要','受到当前环境条件限制','需要其他条件才能发挥作用','相比其他物品，作用较有限','我认为其他物品比它更值得优先考虑','其他原因'];
   const started = useRef(0);
   useEffect(() => {
     started.current = performance.now();
@@ -918,23 +919,19 @@ function Discussion({
       {!session.reason ? (
         <div className="reason-form">
           <label htmlFor="reason">您为什么把这件物品排在这个位置？</label>
-          <Textarea
-            id="reason"
-            value={reason}
-            maxLength={500}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="请用一两句话说明您的考虑。"
-            disabled={busy}
-          />
+          <p>这件物品比较重要/没那么重要，因为（至少选择一项，最多五项）：</p>
+          <div className="reason-options">{reasonOptions.map((option) => <label key={option} className="choice-label"><Checkbox checked={selected.includes(option)} disabled={busy || (!selected.includes(option) && selected.length >= 5)} onCheckedChange={(v) => setSelected((s) => v === true ? [...s, option] : s.filter((x) => x !== option))} />{option}</label>)}</div>
+          {selected.includes('其他原因') && <Textarea id="reason" value={other} maxLength={500} onChange={(e) => setOther(e.target.value)} placeholder="请填写其他原因" disabled={busy} />}
           <div className="reason-footer">
-            <small>{reason.trim().length} / 500 字</small>
+            <small>{selected.length} / 5 项</small>
             <Button
               className="primary-action"
-              disabled={busy || reason.trim().length < 2}
+              disabled={busy || selected.length < 1 || (selected.includes('其他原因') && other.trim().length < 1)}
               onClick={() =>
                 void send('reason', {
                   item: item.id,
-                  reason: reason.trim(),
+                  reasonOptions: selected,
+                  otherReason: other.trim(),
                   responseMs: Math.round(performance.now() - started.current),
                 })
               }

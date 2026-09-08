@@ -124,7 +124,7 @@ export async function createSession(
   if (
     b.consent !== true ||
     !isEligibleAge(b.age) ||
-    !['woman', 'man', 'other', 'undisclosed'].includes(String(b.gender))
+    !['woman', 'man'].includes(String(b.gender))
   )
     throw new StudyError('请确认参与同意，并填写有效的年龄和性别选项。');
   const mode: Mode = b.preview === true ? 'preview' : 'study';

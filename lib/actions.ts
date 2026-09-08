@@ -117,16 +117,15 @@ export function applyAction(
           b.item === DISCUSSION_ORDER[i] &&
           s.reasons.length === i,
       );
-      requireThat(
-        typeof b.reason === 'string' &&
-          b.reason.trim().length >= 2 &&
-          b.reason.trim().length <= 500,
-        '请填写 2–500 字的简短理由。',
-      );
+      if (mode === 'preview' && !Array.isArray(b.reasonOptions) && typeof b.reason === 'string' && b.reason.trim()) b.reasonOptions = ['其他原因'];
+      requireThat(Array.isArray(b.reasonOptions) && b.reasonOptions.length >= 1 && b.reasonOptions.length <= 5, '请至少选择一项、最多选择五项理由。');
+      requireThat(b.reasonOptions.every((x: unknown) => typeof x === 'string' && x.length <= 120));
+      requireThat(mode === 'preview' || !b.reasonOptions.includes('其他原因') || (typeof b.otherReason === 'string' && b.otherReason.trim().length > 0), '请选择或填写其他原因。');
+      requireThat(typeof b.otherReason === 'string' ? b.otherReason.trim().length <= 500 : b.otherReason === undefined, '其他原因不能超过500字。');
       requireThat(numberIn(b.responseMs, 0, 86400000));
       s.reasons.push({
         item: DISCUSSION_ORDER[i],
-        text: b.reason.trim(),
+        text: typeof b.reason === 'string' && b.reason.trim() ? b.reason.trim() : [...(b.reasonOptions as string[]), ...(typeof b.otherReason === 'string' && b.otherReason.trim() ? [`其他：${b.otherReason.trim()}`] : [])].join('；'),
         responseMs: b.responseMs,
       });
       s.playbackAttempts = 0;

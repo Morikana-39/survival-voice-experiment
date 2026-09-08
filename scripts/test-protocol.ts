@@ -259,7 +259,8 @@ await test('full preview flow has fixed discussion order, complete questionnaire
     step({
       action: 'reason',
       item,
-      reason: '这件物品可能有助于生存。',
+      reasonOptions: ['能够提供生存所需的资源或帮助'],
+      otherReason: '',
       responseMs: 5000,
     });
     assert.throws(() =>
@@ -375,7 +376,8 @@ await test('warmup must finish once before reasons and survives reload without r
   const reason = {
     action: 'reason',
     item: ITEM_IDS[0],
-    reason: '理由',
+    reasonOptions: ['我认为该物品在当前情况下较为重要'],
+    otherReason: '',
     responseMs: 1000,
   };
   assert.throws(() => applyAction(s, 'study', reason, now));
