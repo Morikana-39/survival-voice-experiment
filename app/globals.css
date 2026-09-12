@@ -1184,17 +1184,20 @@ h3 {
     position: static;
   }
   .rank-controls {
-    display: grid;
-    grid-template-columns: repeat(2, 30px);
-    gap: 0;
+    display: flex;
+    flex-direction: row;
+    gap: 0.15rem;
   }
   .rank-controls .drag-handle {
     display: grid;
-    width: 32px;
+    width: 28px;
+    height: 32px;
   }
   .rank-slot {
     gap: 0.2rem;
     padding-inline: 0.3rem;
+    min-height: 44px;
+    padding-block: 0.2rem;
   }
   .rank-number {
     width: 25px;
@@ -1223,14 +1226,17 @@ h3 {
     gap: 0.2rem;
   }
   .likert-choice {
-    padding: 0.6rem 0.1rem;
+    padding: 0.55rem 0.45rem;
     border-radius: 5px;
+    min-height: 54px;
   }
   .likert-choice small {
     font-size: 0.875rem;
-    writing-mode: vertical-rl;
-    letter-spacing: 0.08em;
-    max-height: 160px;
+    writing-mode: horizontal-tb;
+    letter-spacing: 0;
+    max-height: none;
+    white-space: normal;
+    line-height: 1.25;
   }
   .action-row {
     flex-direction: column;
@@ -1258,7 +1264,7 @@ h3 {
     grid-template-columns: 1fr 1fr;
   }
   .rank-controls {
-    grid-template-columns: 28px;
+    gap: 0.1rem;
   }
   .content-column {
     padding-inline: 0.8rem;
