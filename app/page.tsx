@@ -651,6 +651,12 @@ export default function Home() {
       >
         <DialogContent
           className="information-review relative"
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
           showCloseButton={false}
         >
           <DialogTitle>
