@@ -3,8 +3,8 @@
   "compatibility_date": "2026-05-15",
   "d1_databases": [{
     "binding": "DB",
-    "database_name": "site-creator-d1",
-    "database_id": "00000000-0000-4000-8000-000000000000",
+    "database_name": "survival-voice-db",
+    "database_id": "a038fd7a-f58b-438f-9af5-1df34bfe24f4",
     "migrations_dir": "drizzle"
   }]
 }
