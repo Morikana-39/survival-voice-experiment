@@ -47,7 +47,7 @@ function events(value: unknown): RankingEvent[] {
 }
 export function applyAction(
   current: State,
-  mode: Mode,
+  _mode: Mode,
   b: Record<string, unknown>,
   now: number,
   randomCount = 3,
@@ -117,15 +117,41 @@ export function applyAction(
           b.item === DISCUSSION_ORDER[i] &&
           s.reasons.length === i,
       );
-      if (mode === 'preview' && !Array.isArray(b.reasonOptions) && typeof b.reason === 'string' && b.reason.trim()) b.reasonOptions = ['其他原因'];
-      requireThat(Array.isArray(b.reasonOptions) && b.reasonOptions.length >= 1 && b.reasonOptions.length <= 5, '请至少选择一项、最多选择五项理由。');
-      requireThat(b.reasonOptions.every((x: unknown) => typeof x === 'string' && x.length <= 120));
-      requireThat(mode === 'preview' || !b.reasonOptions.includes('其他原因') || (typeof b.otherReason === 'string' && b.otherReason.trim().length > 0), '请选择或填写其他原因。');
-      requireThat(typeof b.otherReason === 'string' ? b.otherReason.trim().length <= 500 : b.otherReason === undefined, '其他原因不能超过500字。');
+      requireThat(
+        Array.isArray(b.reasonOptions) &&
+          b.reasonOptions.length >= 1 &&
+          b.reasonOptions.length <= 5,
+        '请至少选择一项、最多选择五项理由。',
+      );
+      requireThat(
+        b.reasonOptions.every(
+          (x: unknown) => typeof x === 'string' && x.length <= 120,
+        ),
+      );
+      requireThat(
+        !b.reasonOptions.includes('其他原因') ||
+          (typeof b.otherReason === 'string' &&
+            b.otherReason.trim().length > 0),
+        '请选择或填写其他原因。',
+      );
+      requireThat(
+        typeof b.otherReason === 'string'
+          ? b.otherReason.trim().length <= 500
+          : b.otherReason === undefined,
+        '其他原因不能超过500字。',
+      );
       requireThat(numberIn(b.responseMs, 0, 86400000));
       s.reasons.push({
         item: DISCUSSION_ORDER[i],
-        text: typeof b.reason === 'string' && b.reason.trim() ? b.reason.trim() : [...(b.reasonOptions as string[]), ...(typeof b.otherReason === 'string' && b.otherReason.trim() ? [`其他：${b.otherReason.trim()}`] : [])].join('；'),
+        text:
+          typeof b.reason === 'string' && b.reason.trim()
+            ? b.reason.trim()
+            : [
+                ...(b.reasonOptions as string[]),
+                ...(typeof b.otherReason === 'string' && b.otherReason.trim()
+                  ? [`其他：${b.otherReason.trim()}`]
+                  : []),
+              ].join('；'),
         responseMs: b.responseMs,
       });
       s.playbackAttempts = 0;
@@ -153,19 +179,18 @@ export function applyAction(
         !s.warmup && s.exposures.length === 0 && s.reasons.length === 0,
       );
       const skipped = b.skipped === true;
-      requireThat(!skipped || mode === 'preview');
-      if (!skipped)
-        requireThat(
-          s.playbackStartedAt &&
-            numberIn(
-              b.durationMs,
-              WARMUP_DURATION_MS - 150,
-              WARMUP_DURATION_MS + 150,
-            ) &&
-            numberIn(b.listenedMs, WARMUP_DURATION_MS - 100, 600000) &&
-            now - Date.parse(s.playbackStartedAt!) >= WARMUP_DURATION_MS - 100,
-          '请完整收听语音后继续。',
-        );
+      requireThat(!skipped, '请完整收听语音后继续。');
+      requireThat(
+        s.playbackStartedAt &&
+          numberIn(
+            b.durationMs,
+            WARMUP_DURATION_MS - 150,
+            WARMUP_DURATION_MS + 150,
+          ) &&
+          numberIn(b.listenedMs, WARMUP_DURATION_MS - 100, 600000) &&
+          now - Date.parse(s.playbackStartedAt!) >= WARMUP_DURATION_MS - 100,
+        '请完整收听语音后继续。',
+      );
       requireThat(
         Number.isInteger(b.interruptions) && numberIn(b.interruptions, 0, 1000),
       );
@@ -188,19 +213,17 @@ export function applyAction(
       const i = s.exposures.length;
       requireThat(b.item === DISCUSSION_ORDER[i] && s.reasons.length === i + 1);
       const skipped = b.skipped === true;
-      requireThat(!skipped || mode === 'preview', '正式实验必须完整播放语音。');
-      if (!skipped) {
-        requireThat(
-          s.playbackStartedAt &&
-            numberIn(b.durationMs, 200, 600000) &&
-            numberIn(b.listenedMs, 200, 600000),
-        );
-        requireThat(
-          b.listenedMs >= b.durationMs - 100 &&
-            now - Date.parse(s.playbackStartedAt!) >= b.durationMs - 100,
-          '请完整听完语音后继续。',
-        );
-      }
+      requireThat(!skipped, '必须完整播放语音。');
+      requireThat(
+        s.playbackStartedAt &&
+          numberIn(b.durationMs, 200, 600000) &&
+          numberIn(b.listenedMs, 200, 600000),
+      );
+      requireThat(
+        b.listenedMs >= b.durationMs - 100 &&
+          now - Date.parse(s.playbackStartedAt!) >= b.durationMs - 100,
+        '请完整听完语音后继续。',
+      );
       requireThat(
         Number.isInteger(b.interruptions) && numberIn(b.interruptions, 0, 1000),
       );
@@ -233,14 +256,13 @@ export function applyAction(
           isRanking(s.final) &&
           s.audioPassed &&
           s.warmup &&
-          (mode === 'preview' || !s.warmup.skipped) &&
+          !s.warmup.skipped &&
           s.exposures.length === DISCUSSION_ORDER.length,
       );
       requireThat(
-        mode === 'preview' ||
-          s.exposures.every(
-            (e) => !e.skipped && e.listenedMs >= e.durationMs - 100,
-          ),
+        s.exposures.every(
+          (e) => !e.skipped && e.listenedMs >= e.durationMs - 100,
+        ),
       );
       requireThat(
         Array.isArray(b.answers) &&

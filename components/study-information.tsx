@@ -34,7 +34,7 @@ export function InstructionInformation() {
     <>
       <div className="instruction-steps">
         {[
-        [
+          [
             '独立判断',
             '请先阅读情境，并根据自己的理解将全部物品按生存重要性排序。请根据个人判断完成排序，没有唯一正确答案。',
           ],
@@ -76,7 +76,7 @@ type InformationConfig = {
 export function ConsentInformation({ config }: { config: InformationConfig }) {
   return (
     <div className="consent-copy">
-        <p>
+      <p>
         本研究关注人们对AI语音助手的感受。您将阅读一个虚构的沙漠生存情境，对 12
         件物品排序，逐项选择或输入理由、收听助手的反馈，然后有机会重新调整排序并填写
         5 道问卷题。
@@ -88,8 +88,8 @@ export function ConsentInformation({ config }: { config: InformationConfig }) {
         我们记录年龄、性别选项、排序、理由选项和文字、语音播放情况和完成时间，不要求姓名或手机号，也不录制您的声音。请不要在理由中输入身份或联系方式。退出后，本次实验产生的回答记录与基本信息将被删除；仅保留匿名参与状态信息，以避免重复参与。
       </p>
       <p>由于部分信息可能影响实验结果，完整研究目的将在实验结束后向您说明。</p>
-      <p className="draft-note">
-        未成年人正式参与前，研究人员需落实经审核的监护人许可、参与者本人同意及数据保护流程。本页的勾选不能代替监护人许可；预览测试请勿提交未成年人的真实资料。
+      <p>
+        未满18周岁的参与者应在监护人知情并同意、且本人自愿同意的情况下参加。
       </p>
       {config?.contact ? (
         <p>
@@ -105,9 +105,7 @@ export function ConsentInformation({ config }: { config: InformationConfig }) {
           )}
         </p>
       ) : (
-        <p className="draft-note">
-          预览提示：正式招募前，研究人员将补充机构、联系方式、数据保存期限和经确认的知情同意说明。
-        </p>
+        <p>如有疑问，请通过招募信息中提供的联系方式联系研究人员。</p>
       )}
     </div>
   );

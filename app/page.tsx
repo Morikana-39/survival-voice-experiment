@@ -40,7 +40,6 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
-import { usePreviewTools } from '@/hooks/use-preview-tools';
 
 type Config = {
   open: boolean;
@@ -81,9 +80,9 @@ export default function Home() {
     [fading, setFading] = useState(false),
     [withdraw, setWithdraw] = useState(false);
   const [review, setReview] = useState<InformationPage | null>(null);
-  const [resetConfirm, setResetConfirm] = useState(false);
-  const [restart, setRestart] = useState(false),
-    [previewRequested, setPreviewRequested] = useState(false);
+  const [testCondition, setTestCondition] = useState<
+    'fluent' | 'disfluent' | null
+  >(null);
   const [failedRequest, setFailedRequest] = useState<{
     path: string;
     body: Record<string, unknown>;
@@ -94,14 +93,20 @@ export default function Home() {
   const phase = session?.protocolMismatch
       ? 'updated'
       : (session?.phase ?? entry),
-    preview = session
-      ? session.mode === 'preview'
-      : previewRequested || !config?.open;
+    testMode = session?.mode === 'preview' || testCondition !== null;
   const history = reviewPages(phase);
   const step = Math.min(10, phases.indexOf(phase) + 1);
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/study', { cache: 'no-store' });
+      const requested =
+        typeof window === 'undefined'
+          ? null
+          : new URLSearchParams(window.location.search).get('testCondition');
+      const condition =
+        requested === 'fluent' || requested === 'disfluent' ? requested : null;
+      setTestCondition(condition);
+      const query = condition ? `?testCondition=${condition}` : '';
+      const r = await fetch(`/api/study${query}`, { cache: 'no-store' });
       const data = (await r.json()) as Config & { error?: string };
       if (!r.ok) throw new Error(data.error);
       setConfig(data);
@@ -113,9 +118,6 @@ export default function Home() {
   }, []);
   useEffect(() => {
     const timer = setTimeout(() => {
-      setPreviewRequested(
-        new URLSearchParams(location.search).get('preview') === '1',
-      );
       void load();
     }, 0);
     const listener = () => {
@@ -203,24 +205,8 @@ export default function Home() {
       age: Number(age),
       gender,
       invitation: invitation.trim(),
-      preview,
-      restart,
+      testCondition,
     });
-  const restartPreview = () => {
-    setSession(null);
-    setRestart(true);
-    setEntry('consent');
-    setEligibilityConfirmed(false);
-    setConsent(false);
-    setError('');
-    setFailedRequest(null);
-    setWithdraw(false);
-    setReview(null);
-    setResetConfirm(false);
-    setAge('');
-    setGender('');
-  };
-  usePreviewTools(preview, phase, busy, restartPreview);
   return (
     <main className="experiment-shell">
       <div className="paper-grain" aria-hidden="true" />
@@ -246,7 +232,7 @@ export default function Home() {
           </div>
           <span className="study-mark">
             <ShieldCheck />
-            {preview ? '流程预览' : '自愿参与'}
+            自愿参与
           </span>
         </header>
         <Progress
@@ -254,22 +240,6 @@ export default function Home() {
           aria-label="实验进度"
           className="experiment-progress"
         />
-        {preview && (
-          <div className="preview-ribbon">
-            预览版 · 12 项物品 · 流畅语音试听 · 本次回答不计入正式研究
-          </div>
-        )}
-        {preview && config && (
-          <div className="preview-reset">
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => setResetConfirm(true)}
-            >
-              重置实验（仅预览）
-            </Button>
-          </div>
-        )}
         <div
           className={`content-column ${fading ? 'page-exit' : 'page-enter'}`}
           key={sceneKey}
@@ -292,7 +262,7 @@ export default function Home() {
                   : phase === 'discussion'
                     ? `第 ${(session?.discussionIndex ?? 0) + 1} 项，共 ${ITEMS.length} 项 · 请按提示完成交流`
                     : phase === 'consent'
-                      ? '请先阅读参与说明。整个任务预计需要 20–30 分钟。'
+                      ? '请先阅读参与说明。整个任务预计需要约 15 分钟。'
                       : ''}
               </p>
             </div>
@@ -325,16 +295,8 @@ export default function Home() {
             <div className="notice-card">
               <RotateCcw />
               <div>
-                <p>
-                  实验内容已更新。旧版记录会保留，但不能与新流程混用。
-                </p>
-                {preview ? (
-                  <Button disabled={busy} onClick={() => setResetConfirm(true)}>
-                    重新开始 12 项预览
-                  </Button>
-                ) : (
-                  <p>请联系研究人员处理您的原有参与记录，不要重新参加。</p>
-                )}
+                <p>实验内容已更新。旧版记录会保留，但不能与新流程混用。</p>
+                <p>请联系研究人员处理您的原有参与记录，不要重新参加。</p>
                 {session.completionCode && (
                   <p>原完成码：{session.completionCode}</p>
                 )}
@@ -362,7 +324,8 @@ export default function Home() {
                     onCheckedChange={(v) => setEligibilityConfirmed(v === true)}
                   />
                   <span>
-                    参与者需要在{MINIMUM_AGE}-{MAXIMUM_AGE}岁之间，已阅读并理解以上说明。
+                    参与者需要在{MINIMUM_AGE}-{MAXIMUM_AGE}
+                    岁之间，已阅读并理解以上说明。
                   </span>
                 </label>
                 <label className="consent-option" htmlFor="study-consent">
@@ -393,11 +356,7 @@ export default function Home() {
           )}
           {phase === 'demographics' && (
             <div className="form-stack">
-              <p>
-                {preview
-                  ? '预览仅供研究人员测试。请使用虚构年龄和其他测试信息，不要填写未成年人的真实资料。'
-                  : '以下信息仅用于研究分析。请按实际情况填写。'}
-              </p>
+              <p>以下信息仅用于研究分析。请按实际情况填写。</p>
               <label className="field-label" htmlFor="age">
                 年龄（周岁）
                 <Input
@@ -429,7 +388,7 @@ export default function Home() {
                   ))}
                 </RadioGroup>
               </fieldset>
-              {!preview && (
+              {!testMode && (
                 <label className="field-label" htmlFor="invitation">
                   参与码
                   <Input
@@ -451,7 +410,7 @@ export default function Home() {
                     !gender ||
                     !age ||
                     !isEligibleAge(Number(age)) ||
-                    (!preview && !invitation.trim())
+                    (!testMode && !invitation.trim())
                   }
                   onClick={() => void begin()}
                 >
@@ -560,11 +519,7 @@ export default function Home() {
             <>
               <div className="completion-box">
                 <CheckCircle2 />
-                <p>
-                  {preview
-                    ? '本次预览已完成，回答不会进入正式研究分析。'
-                    : '您的回答已成功提交，不能再次提交或修改。'}
-                </p>
+                <p>您的回答已成功提交，不能再次提交或修改。</p>
                 <span>完成码</span>
                 <strong>{session.completionCode}</strong>
               </div>
@@ -573,9 +528,11 @@ export default function Home() {
                 <p>
                   本研究考察 AI
                   语音中的填充性停顿（例如“嗯”“呃”）如何影响人们的判断调整和交流体验。参与者被随机分配到两种语音条件之一，两种条件的区别仅在于语音中是否包含填充性停顿。所有语音均为事先准备的录音，并非根据您输入的理由实时生成。
-                  {preview
-                    ? '本次为流程预览，试听的是流畅语音，不属于正式随机分组。'
-                    : `您被分配到的是${session.condition === 'disfluent' ? '填充性停顿' : '流畅语音'}条件。`}
+                  您被分配到的是
+                  {session.condition === 'disfluent'
+                    ? '填充性停顿'
+                    : '流畅语音'}
+                  条件。
                 </p>
                 <p>
                   助手的排序由您的当前排序按固定规则转换得到，并不是专家给出的标准答案。研究关注您听取意见后如何调整排序，以及您感受到的社会临场感。预先不说明这些细节，是为了减少对判断的影响。
@@ -590,18 +547,6 @@ export default function Home() {
                   </p>
                 )}
               </div>
-              {preview && (
-                <div className="action-row">
-                  <p>您可以重新体验；新的预览会话仍与正式数据分开。</p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setResetConfirm(true)}
-                  >
-                    <RotateCcw />
-                    重新预览
-                  </Button>
-                </div>
-              )}
             </>
           )}
           {phase === 'withdrawn' && (
@@ -651,12 +596,6 @@ export default function Home() {
       >
         <DialogContent
           className="information-review relative"
-          style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
           showCloseButton={false}
         >
           <DialogTitle>
@@ -676,19 +615,18 @@ export default function Home() {
             {review && history.indexOf(review) > 0 && (
               <Button
                 variant="outline"
-                onClick={() =>
-                  setReview(history[history.indexOf(review) - 1])
-                }
+                onClick={() => setReview(history[history.indexOf(review) - 1])}
               >
                 上一页
               </Button>
             )}
-            {review &&
-              history.indexOf(review) < history.length - 1 && (
-                <Button onClick={() => setReview(history[history.indexOf(review) + 1])}>
-                  下一页
-                </Button>
-              )}
+            {review && history.indexOf(review) < history.length - 1 && (
+              <Button
+                onClick={() => setReview(history[history.indexOf(review) + 1])}
+              >
+                下一页
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => {
@@ -713,9 +651,6 @@ export default function Home() {
             {session
               ? '确认退出后，您将无法再次参与本实验。本次实验产生的回答记录与基本信息将被删除；仅保留匿名参与状态信息，以避免重复参与。'
               : '您尚未开始正式实验，本页尚未提交研究数据。确认离开吗？开始正式实验后，若确认退出，将无法再次参与。'}
-            {preview
-              ? ' 本次为测试预览，研究人员仍可通过“重置实验”重新测试。'
-              : ''}
           </AlertDialogDescription>
           <div className="button-row">
             <Button
@@ -743,31 +678,6 @@ export default function Home() {
               }}
             >
               确认退出
-            </Button>
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog
-        open={resetConfirm}
-        onOpenChange={(open) => {
-          if (!busy) setResetConfirm(open);
-        }}
-      >
-        <AlertDialogContent className="study-confirmation">
-          <AlertDialogTitle>重新开始预览？</AlertDialogTitle>
-          <AlertDialogDescription>
-            将开始新的测试流程。之前的预览记录不会计入正式研究；此按钮仅供测试，正式参与不可用。
-          </AlertDialogDescription>
-          <div className="button-row">
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => setResetConfirm(false)}
-            >
-              返回
-            </Button>
-            <Button disabled={busy || !preview} onClick={restartPreview}>
-              重置实验
             </Button>
           </div>
         </AlertDialogContent>
@@ -887,7 +797,11 @@ function SoundCheck({ send, busy }: { send: Send; busy: boolean }) {
           <Button
             className="primary-action"
             disabled={!answer || busy}
-            onClick={() => { setPlayed(false); setAnswer(''); void send('tone_answer', { count: Number(answer) }); }}
+            onClick={() => {
+              setPlayed(false);
+              setAnswer('');
+              void send('tone_answer', { count: Number(answer) });
+            }}
           >
             确认并继续
             <ArrowRight />
@@ -909,15 +823,7 @@ function Discussion({
   send: Send;
   busy: boolean;
 }) {
-  const item = ITEMS.find((x) => x.id === session.currentItem)!,
-    key = `${session.id}-reason-${item.id}`;
-  const [reason, setReason] = useState(() => {
-    try {
-      return sessionStorage.getItem(key) ?? '';
-    } catch {
-      return '';
-    }
-  });
+  const item = ITEMS.find((x) => x.id === session.currentItem)!;
   const [selected, setSelected] = useState<string[]>([]),
     [other, setOther] = useState('');
   const reasonOptions = [
@@ -949,11 +855,6 @@ function Discussion({
   useEffect(() => {
     started.current = performance.now();
   }, []);
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(key, reason);
-    } catch {}
-  }, [key, reason]);
   return (
     <div className="discussion-focus">
       <div className="item-focus-title">

@@ -414,8 +414,7 @@
   }
 }
 
-.preview-reset { display:flex; justify-content:flex-end; padding:0.7rem 2.4rem 0; }
-.information-review { position:fixed !important; top:50% !important; left:50% !important; width:min(760px,calc(100vw - 2rem)); max-width:760px !important; max-height:85svh; overflow-y:auto; transform:translate(-50%,-50%) !important; background:#fcf4e7; font-size:1rem; }
+.information-review { position:relative; width:min(760px,calc(100vw - 2rem)); max-width:760px !important; max-height:85svh; overflow-y:auto; background:#fcf4e7; font-size:1rem; }
 @media(max-width:640px) { .information-review { width:calc(100vw - 1.25rem); max-height:calc(100svh - 1.25rem); padding:1rem; } }
 .study-confirmation { background:#fcf4e7; }
 .study-confirmation p { font-size:1rem; line-height:1.8; }

@@ -118,8 +118,17 @@ export async function createSession(
   request: Request,
   b: Record<string, unknown>,
 ) {
+  const requestedTestCondition: Condition | null =
+    b.testCondition === 'fluent' || b.testCondition === 'disfluent'
+      ? b.testCondition
+      : null;
+  const mode: Mode = requestedTestCondition ? 'preview' : 'study';
   const existing = await findSession(request);
-  if (existing && !(b.restart === true && existing.mode === 'preview'))
+  if (
+    existing &&
+    existing.mode === mode &&
+    (mode === 'study' || existing.condition === requestedTestCondition)
+  )
     return json({ session: view(existing) });
   if (
     b.consent !== true ||
@@ -127,7 +136,6 @@ export async function createSession(
     !['woman', 'man'].includes(String(b.gender))
   )
     throw new StudyError('请确认参与同意，并填写有效的年龄和性别选项。');
-  const mode: Mode = b.preview === true ? 'preview' : 'study';
   let tokenHash: string | null = null;
   if (mode === 'study') {
     if (!studyConfigured())
@@ -162,9 +170,10 @@ export async function createSession(
     now = new Date().toISOString(),
     id = crypto.randomUUID();
   const condition: Condition =
-    mode === 'preview' || crypto.getRandomValues(new Uint8Array(1))[0] < 128
+    requestedTestCondition ??
+    (crypto.getRandomValues(new Uint8Array(1))[0] < 128
       ? 'fluent'
-      : 'disfluent';
+      : 'disfluent');
   const state = JSON.stringify(freshState(now));
   try {
     const result = await db()

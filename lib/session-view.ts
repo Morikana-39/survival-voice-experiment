@@ -32,14 +32,10 @@ export function view(row: SessionRow): View {
     discussionIndex: index,
     currentItem,
     reason: mismatch ? null : (s.reasons[index]?.text ?? null),
-    // Preview deliberately auditions fluent clips only, clearly labelled in the UI.
     audioSrc: warmupPending
       ? '/audio/warmup.mp3'
       : !mismatch && s.reasons[index] && currentItem
-        ? audioPath(
-            row.mode === 'preview' ? 'fluent' : row.condition,
-            currentItem,
-          )
+        ? audioPath(row.condition, currentItem)
         : null,
     audioCheckPassed: !mismatch && s.audioPassed,
     questionnaire: mismatch ? [] : s.questionnaire,

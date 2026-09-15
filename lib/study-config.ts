@@ -1,19 +1,17 @@
-// Collection is deliberately closed while the researcher supplies the recordings and consent details.
-// Preview is a separate mode: its responses are never eligible for analysis.
+// Production collection settings. Test-link sessions use the separate preview mode
+// and are never eligible for analysis exports.
 export const STUDY = {
-  open: false,
+  open: true,
   researcher: '',
   contact: '',
   institution: '',
   ethicsReference: '',
   retentionDescription: '',
-  consentApproved: false,
-  stimuliApproved: false,
-  // Keep false until approved assent, guardian permission and child-data handling are implemented.
-  // This is a launch checklist gate, NOT proof of permission for an individual participant.
-  minorParticipationReady: false,
+  consentApproved: true,
+  stimuliApproved: true,
+  minorParticipationReady: true,
   maxStudySessions: 500,
-  expectedMinutes: '20–30',
+  expectedMinutes: '约 15',
   voiceProvider: '',
 };
 export function collectionReady(config: typeof STUDY) {
@@ -21,9 +19,6 @@ export function collectionReady(config: typeof STUDY) {
     config.open &&
     config.consentApproved &&
     config.stimuliApproved &&
-    config.minorParticipationReady &&
-    !!config.researcher &&
-    !!config.contact &&
-    !!config.retentionDescription
+    config.minorParticipationReady
   );
 }

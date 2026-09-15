@@ -84,17 +84,8 @@ export function AudioPlayer({
   return (
     <div className="audio-panel">
       <h3>
-        {session.warmupPending
-          ? '交流前，请先收听一段语音'
-          : session.mode === 'preview'
-            ? 'AI 语音助手 · 流畅语音试听'
-            : 'AI 语音助手'}
+        {session.warmupPending ? '交流前，请先收听一段语音' : 'AI 语音助手'}
       </h3>
-      {session.mode === 'preview' && !session.warmupPending && (
-        <p>
-          预览仅播放已上传的流畅语音，不代表正式随机分组。停顿版语音待加入。
-        </p>
-      )}
       <output className="audio-status">{message}</output>
       {/* A transcript would change the auditory experimental stimulus. */}
       {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
@@ -180,24 +171,6 @@ export function AudioPlayer({
             继续
           </Button>
         </>
-      )}
-      {session.mode === 'preview' && (
-        <Button
-          variant="ghost"
-          disabled={busy}
-          onClick={() => {
-            // A skipped test clip is recorded explicitly and never enters study exports.
-            playing.current = false;
-            media.current?.pause();
-            void send(session.warmupPending ? 'warmup_complete' : 'exposure', {
-              item: session.currentItem,
-              skipped: true,
-              interruptions: interruptions.current,
-            });
-          }}
-        >
-          仅测试：跳过本段语音
-        </Button>
       )}
     </div>
   );
