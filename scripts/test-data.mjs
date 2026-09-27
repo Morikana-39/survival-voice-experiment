@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { describeGroups } from './lib/describe-groups.mjs';
 
 const folder = resolve('outputs', `data-test-${crypto.randomUUID()}`);
 mkdirSync(folder, { recursive: true });
@@ -195,6 +196,118 @@ assert.equal(
   readFileSync(join(output, 'rankings.csv'), 'utf8').split('\r\n').length,
   118,
 );
+const audit = JSON.parse(
+  readFileSync(join(output, 'export-audit.json'), 'utf8'),
+);
+assert.equal(audit.included_sessions, 3);
+assert.equal(audit.automatically_excluded_sessions, 6);
+assert.equal(
+  audit.source_sha256,
+  createHash('sha256').update(readFileSync(source)).digest('hex'),
+);
+const originalBytes = readFileSync(source);
+const exclusions = join(folder, 'exclusions.json');
+writeFileSync(
+  exclusions,
+  JSON.stringify([{ session_id: 'eligible-test', reason: 'Researcher test' }]),
+);
+const filteredOutput = join(folder, 'filtered');
+run('scripts/export-data.mjs', source, filteredOutput, '--exclude', exclusions);
+for (const file of [
+  'participants',
+  'rankings',
+  'discussion',
+  'social-presence',
+]) {
+  const content = readFileSync(join(filteredOutput, `${file}.csv`), 'utf8');
+  assert.doesNotMatch(content, /eligible-test/);
+  assert.match(content, /away-test/);
+}
+const filteredAudit = JSON.parse(
+  readFileSync(join(filteredOutput, 'export-audit.json'), 'utf8'),
+);
+assert.equal(filteredAudit.included_sessions, 2);
+assert.equal(filteredAudit.manually_excluded_eligible_sessions, 1);
+assert.equal(
+  filteredAudit.decisions.find((r) => r.session_id === 'eligible-test')
+    .manual_reason,
+  'Researcher test',
+);
+assert.deepEqual(readFileSync(source), originalBytes);
+assert.equal(
+  readFileSync(join(output, 'participants.csv'), 'utf8'),
+  participants,
+);
+for (const entries of [
+  [{ session_id: 'typo', reason: 'Test' }],
+  [{ session_id: 'eligible-test', reason: '' }],
+  [
+    { session_id: 'eligible-test', reason: 'Test' },
+    { session_id: 'eligible-test', reason: 'Duplicate' },
+  ],
+]) {
+  const bad = join(folder, `bad-${crypto.randomUUID()}.json`);
+  writeFileSync(bad, JSON.stringify(entries));
+  const result = spawnSync(
+    process.execPath,
+    [
+      'scripts/export-data.mjs',
+      source,
+      join(folder, 'bad-output'),
+      '--exclude',
+      bad,
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.notEqual(result.status, 0);
+}
+const overwrite = spawnSync(
+  process.execPath,
+  ['scripts/export-data.mjs', source, output],
+  { encoding: 'utf8' },
+);
+assert.notEqual(overwrite.status, 0);
+assert.equal(
+  readFileSync(join(output, 'participants.csv'), 'utf8'),
+  participants,
+);
+const descriptive = describeGroups([
+  { version: 'a', condition: 'fluent', bci: 0 },
+  { version: 'a', condition: 'fluent', bci: 1 },
+  { version: 'a', condition: 'fluent', bci: null },
+  { version: 'a', condition: 'disfluent', bci: -0.5 },
+  { version: 'b', condition: 'fluent', bci: 0.25 },
+]).filter((r) => r.measure === 'bci');
+assert.equal(descriptive.length, 3);
+assert.equal(descriptive[0].group_n, 3);
+assert.equal(descriptive[0].n, 2);
+assert.equal(descriptive[0].missing_n, 1);
+assert.equal(descriptive[0].mean, 0.5);
+assert.equal(descriptive[0].sample_sd, Math.sqrt(0.5));
+assert.equal(descriptive[1].mean, -0.5);
+assert.equal(descriptive[1].sample_sd, null);
+const allExcluded = join(folder, 'all-excluded.json');
+writeFileSync(
+  allExcluded,
+  JSON.stringify(
+    ['eligible-test', 'away-test', 'legacy-test'].map((session_id) => ({
+      session_id,
+      reason: 'Synthetic fixture',
+    })),
+  ),
+);
+run(
+  'scripts/export-data.mjs',
+  source,
+  join(folder, 'empty'),
+  '--exclude',
+  allExcluded,
+);
+assert.equal(
+  JSON.parse(readFileSync(join(folder, 'empty/export-audit.json'), 'utf8'))
+    .included_sessions,
+  0,
+);
 console.log(
-  'Data checks passed: unique code constraints including withdrawal, hashed invitation import, complete-only exports, all rankings, CSV formula escaping. All fixtures are synthetic and remain in ignored outputs.',
+  'Data checks passed: unique codes, complete-only exports, legacy scores, CSV escaping, audited exclusions across all tables, descriptive grouping, invalid exclusions, empty samples, unchanged raw data, and overwrite protection. All fixtures are synthetic.',
 );

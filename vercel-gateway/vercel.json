@@ -1,0 +1,39 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "headers": [
+    {
+      "source": "/_next/static/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        { "key": "X-Study-Asset-Host", "value": "vercel" }
+      ]
+    },
+    {
+      "source": "/audio/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        { "key": "X-Study-Asset-Host", "value": "vercel" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "https://survival-voice-experiment.s691lhg56.workers.dev/"
+    },
+    {
+      "source": "/api/:route*",
+      "destination": "/api/relay?route=:route*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "https://survival-voice-experiment.s691lhg56.workers.dev/:path*"
+    }
+  ]
+}

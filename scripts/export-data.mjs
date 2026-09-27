@@ -1,12 +1,31 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-const input = process.argv[2],
-  directory = resolve(process.argv[3] ?? 'private-export');
-if (!input)
-  throw new Error(
-    'Usage: pnpm export:data <sessions-query.json> [private-output-directory]',
-  );
-const parsed = JSON.parse(readFileSync(input, 'utf8'));
+import { createHash } from 'node:crypto';
+import { describeGroups } from './lib/describe-groups.mjs';
+
+const usage =
+  'Usage: node scripts/export-data.mjs <sessions-query.json> [output-directory] [--exclude exclusions.json]';
+const args = process.argv.slice(2);
+if (args.includes('--help')) {
+  console.log(usage);
+  process.exit(0);
+}
+let exclusionsPath;
+const positional = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--exclude') {
+    if (exclusionsPath || !args[i + 1] || args[i + 1].startsWith('--'))
+      throw new Error(usage);
+    exclusionsPath = args[++i];
+  } else if (args[i].startsWith('--')) throw new Error(usage);
+  else positional.push(args[i]);
+}
+if (positional.length > 2) throw new Error(usage);
+const input = positional[0],
+  directory = resolve(positional[1] ?? 'private-export');
+if (!input) throw new Error(usage);
+const sourceBytes = readFileSync(input);
+const parsed = JSON.parse(sourceBytes.toString('utf8').replace(/^\uFEFF/, ''));
 const rows =
   Array.isArray(parsed) && parsed[0]?.results
     ? parsed[0].results
@@ -15,6 +34,48 @@ if (!Array.isArray(rows))
   throw new Error(
     'Expected query rows, or a Wrangler JSON result containing rows.',
   );
+const ids = new Set();
+for (const row of rows) {
+  if (!row || typeof row.id !== 'string' || !row.id.trim() || ids.has(row.id))
+    throw new Error(
+      'Every source row must have a unique, nonempty session id.',
+    );
+  ids.add(row.id);
+}
+const exclusions = new Map();
+let exclusionBytes;
+if (exclusionsPath) {
+  exclusionBytes = readFileSync(exclusionsPath);
+  const entries = JSON.parse(
+    exclusionBytes.toString('utf8').replace(/^\uFEFF/, ''),
+  );
+  if (!Array.isArray(entries))
+    throw new Error('Exclusions must be an array of {session_id, reason}.');
+  for (const entry of entries) {
+    if (
+      !entry ||
+      typeof entry.session_id !== 'string' ||
+      typeof entry.reason !== 'string' ||
+      !entry.reason.trim()
+    )
+      throw new Error(
+        'Each exclusion needs a session_id and a nonempty reason.',
+      );
+    if (!ids.has(entry.session_id))
+      throw new Error(`Unknown exclusion session_id: ${entry.session_id}`);
+    if (exclusions.has(entry.session_id))
+      throw new Error(`Duplicate exclusion: ${entry.session_id}`);
+    exclusions.set(entry.session_id, entry.reason.trim());
+  }
+}
+const audit = rows
+  .filter((row) => row.mode !== 'study' || row.status !== 'complete')
+  .map((row) => ({
+    session_id: row.id,
+    included: false,
+    reason: row.mode !== 'study' ? 'not-study-mode' : `status-${row.status}`,
+    manual_reason: exclusions.get(row.id) ?? null,
+  }));
 const usable = rows.filter(
   (row) => row.mode === 'study' && row.status === 'complete',
 );
@@ -51,8 +112,30 @@ for (const row of usable) {
     !sameItems(state.exposures.map((e) => e.item)) ||
     state.reasons.some((r, i) => r.item !== state.exposures[i].item) ||
     state.exposures.some((e) => e.skipped)
-  )
+  ) {
+    audit.push({
+      session_id: row.id,
+      included: false,
+      reason: 'failed-existing-eligibility-checks',
+      manual_reason: exclusions.get(row.id) ?? null,
+    });
     continue;
+  }
+  if (exclusions.has(row.id)) {
+    audit.push({
+      session_id: row.id,
+      included: false,
+      reason: 'manual-exclusion',
+      manual_reason: exclusions.get(row.id),
+    });
+    continue;
+  }
+  audit.push({
+    session_id: row.id,
+    included: true,
+    reason: 'eligible',
+    manual_reason: null,
+  });
   summary.push({
     session_id: row.id,
     version: row.version,
@@ -129,15 +212,56 @@ const csv = (records) => {
     ].join('\r\n')
   );
 };
-for (const [name, data] of [
+const files = [
   ['participants', summary],
   ['rankings', ranks],
   ['discussion', reasons],
   ['social-presence', survey],
+  ['analysis-summary', describeGroups(summary)],
+];
+for (const name of [
+  ...files.map(([name]) => `${String(name)}.csv`),
+  'export-audit.json',
 ])
+  if (existsSync(join(directory, name)))
+    throw new Error(
+      `Output already exists: ${name}. Choose a new output directory.`,
+    );
+for (const [name, data] of files)
   writeFileSync(join(directory, `${String(name)}.csv`), csv(data), {
     flag: 'wx',
   });
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+writeFileSync(
+  join(directory, 'export-audit.json'),
+  JSON.stringify(
+    {
+      exporter_version: '2-exclusions-descriptive-summary',
+      exported_at: new Date().toISOString(),
+      source_sha256: sha256(sourceBytes),
+      exporter_sha256: sha256(readFileSync(new URL(import.meta.url))),
+      summary_script_sha256: sha256(
+        readFileSync(new URL('./lib/describe-groups.mjs', import.meta.url)),
+      ),
+      exclusions_sha256: exclusionBytes ? sha256(exclusionBytes) : null,
+      source_sessions: rows.length,
+      included_sessions: summary.length,
+      automatically_excluded_sessions: audit.filter(
+        (r) => !r.included && r.reason !== 'manual-exclusion',
+      ).length,
+      manually_excluded_eligible_sessions: audit.filter(
+        (r) => r.reason === 'manual-exclusion',
+      ).length,
+      decisions: audit,
+    },
+    null,
+    2,
+  ) + '\n',
+  { flag: 'wx' },
+);
 console.log(
   `Exported ${summary.length} completed study sessions. Preview, incomplete, withdrawn, and skipped-audio sessions are excluded. Keep protocol versions/item counts separate; stored legacy outcomes are not recomputed. Raw source query is unchanged.`,
+);
+console.log(
+  `Manual exclusions of otherwise eligible sessions: ${audit.filter((r) => r.reason === 'manual-exclusion').length}. Descriptive results: analysis-summary.csv. Decisions and source fingerprints: export-audit.json.`,
 );

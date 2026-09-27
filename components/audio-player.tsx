@@ -67,7 +67,7 @@ export function AudioPlayer({
     try {
       await a.play();
       setStatus('playing');
-      setMessage('正在播放，请保持页面打开。');
+      setMessage('播放中...\n请保持页面打开。');
     } catch {
       setStatus('error');
       setMessage('浏览器未允许播放，请打开声音后再次点击播放。');
@@ -141,7 +141,7 @@ export function AudioPlayer({
             return;
           }
           setStatus('done');
-          setMessage('语音已播放完毕。');
+          setMessage('已完成。');
         }}
       />
 

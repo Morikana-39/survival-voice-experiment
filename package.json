@@ -7,7 +7,8 @@
   },
   "scripts": {
     "dev": "vinext dev",
-    "build": "vinext build",
+    "build": "node scripts/check-audio.mjs && vinext build",
+    "build:vercel-gateway": "npm run build && npm run prepare:vercel-gateway",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt",
@@ -15,6 +16,7 @@
     "db:local": "wrangler d1 migrations apply DB --local --config wrangler.local.json",
     "check:audio": "node scripts/check-audio.mjs",
     "invitations": "node scripts/create-invitations.mjs",
+    "prepare:vercel-gateway": "node scripts/prepare-vercel-gateway.mjs",
     "export:data": "node scripts/export-data.mjs"
   },
   "dependencies": {

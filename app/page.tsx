@@ -65,6 +65,25 @@ const titles: Record<string, string> = {
   updated: '实验内容已更新',
 };
 const phases = Object.keys(titles);
+const actionId = () => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
+};
+const startKey = () => {
+  try {
+    const saved = sessionStorage.getItem('survival-voice-start-key');
+    if (saved && /^[a-f0-9]{64}$/.test(saved)) return saved;
+  } catch {}
+  const key = Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
+  try {
+    sessionStorage.setItem('survival-voice-start-key', key);
+  } catch {}
+  return key;
+};
 
 export default function Home() {
   const [config, setConfig] = useState<Config | null>(null),
@@ -113,10 +132,23 @@ export default function Home() {
       setSession(data.session);
       setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : '连接失败，请重新加载。');
+      setError(
+        e instanceof TypeError || e instanceof SyntaxError
+          ? '无法加载实验进度，请检查网络后重试。'
+          : e instanceof Error
+            ? e.message
+            : '连接失败，请重新加载。',
+      );
     }
   }, []);
   useEffect(() => {
+    document.documentElement.dataset.studyJavascript = 'ready';
+    if (
+      getComputedStyle(document.documentElement)
+        .getPropertyValue('--study-styles-ready')
+        .trim() === '1'
+    )
+      document.getElementById('study-load-failure')?.setAttribute('hidden', '');
     const timer = setTimeout(() => {
       void load();
     }, 0);
@@ -142,11 +174,21 @@ export default function Home() {
     setBusy(true);
     setError('');
     try {
-      const r = await fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      let r: Response | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          r = await fetch(path, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (r.status < 500 || attempt === 1) break;
+        } catch (e) {
+          if (attempt === 1) throw e;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+      if (!r) throw new Error('连接暂时不可用，请重试同一提交。');
       if (r.status >= 500) {
         setFailedRequest({ path, body });
         throw new Error('连接暂时不可用，请重试同一提交。');
@@ -168,6 +210,11 @@ export default function Home() {
         await new Promise((resolve) => setTimeout(resolve, 140));
       }
       if (next) setSession(next);
+      if (next && path === '/api/session') {
+        try {
+          sessionStorage.removeItem('survival-voice-start-key');
+        } catch {}
+      }
       setFading(false);
       setFailedRequest(null);
       if (next?.phase === 'complete') {
@@ -183,8 +230,15 @@ export default function Home() {
       }
       return data as Record<string, unknown>;
     } catch (e) {
-      if (e instanceof TypeError) setFailedRequest({ path, body });
-      setError(e instanceof Error ? e.message : '网络连接中断，请重试。');
+      if (e instanceof TypeError || e instanceof SyntaxError)
+        setFailedRequest({ path, body });
+      setError(
+        e instanceof TypeError || e instanceof SyntaxError
+          ? '网络连接中断，请重试同一提交。'
+          : e instanceof Error
+            ? e.message
+            : '网络连接中断，请重试。',
+      );
       return null;
     } finally {
       actionLock.current = false;
@@ -195,12 +249,13 @@ export default function Home() {
   const send = (action: string, extra: Record<string, unknown> = {}) =>
     request('/api/action', {
       action,
-      actionId: crypto.randomUUID(),
+      actionId: actionId(),
       revision: session?.revision,
       ...extra,
     });
   const begin = () =>
     request('/api/session', {
+      startKey: startKey(),
       consent: consent && eligibilityConfirmed,
       age: Number(age),
       gender,

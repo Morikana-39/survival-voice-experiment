@@ -1,5 +1,19 @@
 # Survival voice experiment
 
+## Use the analysis tools on another device
+
+See [the analysis guide](research/ANALYSIS_GUIDE.md) for GitHub download, private
+data export, CSV conversion, descriptive summaries, and audited exclusions of
+completed researcher tests. Offline conversion requires only Node.js 22.13+:
+
+```sh
+node scripts/export-data.mjs private-export/source-query.json private-export/analysis-all
+node scripts/export-data.mjs private-export/source-query.json private-export/analysis-clean --exclude private-export/exclusions.json
+```
+
+Participant data and credentials are excluded from this repository. These tools
+do not deploy the website or modify the production database.
+
 
 Current release (2026-09-15): production collection is enabled, eligibility is 12–65 inclusive, and the estimated completion time is approximately 15 minutes. The common warm-up, revised wording, read-only informational returns, swap interactions, matched condition audio, and final participant flow are active.
 
@@ -43,7 +57,7 @@ gauze.mp3       pistol.mp3      parachute.mp3 water.mp3
 book.mp3        sunglasses.mp3  coat.mp3      mirror.mp3
 ```
 
-Run `pnpm check:audio`. It checks presence and nontrivial size, not perceptual matching, intelligibility or waveform quality. Real session creation also checks deployed audio paths. The researcher should verify the matched manipulation, intelligibility, loudness, and target-device playback before recruitment.
+Run `pnpm check:audio`. The production build also requires all audio files to exist and have nontrivial size before deployment; it does not test perceptual matching, intelligibility or waveform quality. Verify the deployed audio paths and the matched manipulation, intelligibility, loudness, and target-device playback before recruitment.
 
 Keep scripts independent of the participant's reason and exact numerical ranking; there is no runtime language-model response. The debrief makes this clear. `lib/audio-manifest.ts` maps the files; `lib/study-config.ts` contains launch settings. Every session uses only its assigned condition and audio cannot be skipped. There is no fluent fallback for missing disfluent audio.
 

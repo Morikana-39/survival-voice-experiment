@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers';
 import { STUDY, collectionReady } from './study-config';
-import { REQUIRED_AUDIO } from './audio-manifest';
 import { view } from './session-view';
 export { view } from './session-view';
 import {
@@ -58,6 +57,8 @@ export const json = (body: unknown, status = 200, cookie?: string) =>
       ...(cookie ? { 'Set-Cookie': cookie } : {}),
     },
   });
+const sessionCookie = (key: string, request: Request) =>
+  `sv_session=${key}; HttpOnly; SameSite=Strict; Path=/; Max-Age=7776000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`;
 export async function bodyOf(
   request: Request,
 ): Promise<Record<string, unknown>> {
@@ -102,18 +103,6 @@ export const failure = (error: unknown) =>
 export function studyConfigured() {
   return collectionReady(STUDY);
 }
-export async function checkAssets(request: Request) {
-  // Check the exact deployed asset set before accepting a real participant.
-  const missing: string[] = [];
-  for (const clip of [{ path: '/audio/warmup.mp3' }, ...REQUIRED_AUDIO]) {
-    const result = await fetch(new URL(clip.path, request.url), {
-      method: 'HEAD',
-    });
-    if (!result.ok || !result.headers.get('content-type')?.startsWith('audio/'))
-      missing.push(clip.path);
-  }
-  return missing;
-}
 export async function createSession(
   request: Request,
   b: Record<string, unknown>,
@@ -136,6 +125,11 @@ export async function createSession(
     !['woman', 'man'].includes(String(b.gender))
   )
     throw new StudyError('请确认参与同意，并填写有效的年龄和性别选项。');
+  const startKey =
+    typeof b.startKey === 'string' && /^[a-f0-9]{64}$/.test(b.startKey)
+      ? b.startKey
+      : null;
+  const startHash = startKey ? await hash(startKey) : null;
   let tokenHash: string | null = null;
   if (mode === 'study') {
     if (!studyConfigured())
@@ -153,20 +147,19 @@ export async function createSession(
         .first())
     )
       throw new StudyError('参与码无效。');
-    if (
-      await db()
-        .prepare('SELECT id FROM sessions WHERE token_hash = ?')
-        .bind(tokenHash)
-        .first()
-    )
+    const prior = await db()
+      .prepare('SELECT * FROM sessions WHERE token_hash = ?')
+      .bind(tokenHash)
+      .first<SessionRow>();
+    if (prior && startHash && prior.auth_hash === startHash)
+      return json({ session: view(prior) }, 200, sessionCookie(startKey!, request));
+    if (prior)
       throw new StudyError(
         '此参与码已使用。请在原浏览器继续，或联系研究人员。',
         409,
       );
-    if ((await checkAssets(request)).length)
-      throw new StudyError('实验音频尚未准备完毕。请稍后再参加。', 503);
   }
-  const key = randomKey(),
+  const key = startKey ?? randomKey(),
     now = new Date().toISOString(),
     id = crypto.randomUUID();
   const condition: Condition =
@@ -198,6 +191,19 @@ export async function createSession(
     if (!result.meta.changes) throw new StudyError('本研究参与名额已满。', 403);
   } catch (error) {
     if (error instanceof StudyError) throw error;
+    if (startHash) {
+      const prior = await db()
+        .prepare('SELECT * FROM sessions WHERE auth_hash = ?')
+        .bind(startHash)
+        .first<SessionRow>();
+      if (
+        prior &&
+        prior.mode === mode &&
+        prior.token_hash === tokenHash &&
+        (mode === 'study' || prior.condition === requestedTestCondition)
+      )
+        return json({ session: view(prior) }, 200, sessionCookie(key, request));
+    }
     throw new StudyError(
       '参与码已被使用，或连接暂时不可用。请刷新后重试。',
       409,
@@ -210,6 +216,6 @@ export async function createSession(
   return json(
     { session: view(row!) },
     201,
-    `sv_session=${key}; HttpOnly; SameSite=Strict; Path=/; Max-Age=7776000${new URL(request.url).protocol === 'https:' ? '; Secure' : ''}`,
+    sessionCookie(key, request),
   );
 }

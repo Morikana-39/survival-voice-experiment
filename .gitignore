@@ -40,3 +40,18 @@ next-env.d.ts
 /private-invitations/
 /private-export/
 *.tsbuildinfo
+
+# Research exports, local credentials, and generated deployment copies
+*.csv
+*.sqlite*
+*.db
+*.zip
+/tmp-*/
+**/node_modules/
+**/.wrangler/
+**/.env*
+/vercel-gateway/_next/
+/vercel-gateway/audio/
+/vercel-gateway/experiment-frame.png
+/vercel-gateway/favicon.svg
+/vercel-gateway/vinext-client-entry-manifest.json

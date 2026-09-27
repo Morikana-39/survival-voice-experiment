@@ -30,6 +30,7 @@
 }
 
 :root {
+  --study-styles-ready: 1;
   --background: #d9c1a2;
   --foreground: #35281d;
   --card: #f7eddb;
@@ -952,6 +953,9 @@ h3 {
 .audio-panel h3 {
   margin: 0;
   font-size: 1.25rem;
+}
+.audio-status {
+  white-space: pre-line;
 }
 .audio-panel > svg {
   width: 32px;
